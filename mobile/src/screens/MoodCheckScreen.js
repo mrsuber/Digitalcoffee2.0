@@ -9,7 +9,6 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Slider from '@react-native-community/slider';
 import { theme } from '../utils/theme';
 
 const { width } = Dimensions.get('window');
@@ -70,18 +69,27 @@ export const MoodCheckScreen = ({ navigation }) => {
 
       <View style={styles.emojiSliderContainer}>
         <Text style={styles.sliderLabel}>Overall feeling (1-5)</Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={1}
-          maximumValue={5}
-          step={1}
-          value={emojiRating}
-          onValueChange={setEmojiRating}
-          minimumTrackTintColor={theme.colors.alpha}
-          maximumTrackTintColor={theme.colors.border}
-          thumbTintColor={theme.colors.alpha}
-        />
-        <Text style={styles.sliderValue}>{emojiRating}</Text>
+        <View style={styles.ratingButtons}>
+          {[1, 2, 3, 4, 5].map((rating) => (
+            <TouchableOpacity
+              key={rating}
+              style={[
+                styles.ratingButton,
+                emojiRating === rating && styles.ratingButtonSelected,
+              ]}
+              onPress={() => setEmojiRating(rating)}
+            >
+              <Text
+                style={[
+                  styles.ratingText,
+                  emojiRating === rating && styles.ratingTextSelected,
+                ]}
+              >
+                {rating}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </>
   );
@@ -241,15 +249,31 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
   },
-  slider: {
-    width: '100%',
-    height: 40,
+  ratingButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.sm,
   },
-  sliderValue: {
+  ratingButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ratingButtonSelected: {
+    borderColor: theme.colors.alpha,
+    backgroundColor: 'rgba(13, 148, 136, 0.2)',
+  },
+  ratingText: {
     fontSize: theme.fonts.sizes.lg,
-    color: theme.colors.alpha,
-    textAlign: 'center',
+    color: theme.colors.textSecondary,
     fontWeight: 'bold',
+  },
+  ratingTextSelected: {
+    color: theme.colors.alpha,
   },
   focusContainer: {
     flexDirection: 'row',
