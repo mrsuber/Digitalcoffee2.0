@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,13 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +29,23 @@ export const AuthScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const { login, register } = useAuth();
+
+  // Animations
+  const fadeIn = useSharedValue(0);
+  const slideUp = useSharedValue(30);
+
+  useEffect(() => {
+    // Entrance animations
+    fadeIn.value = withTiming(1, {
+      duration: 800,
+      easing: Easing.inOut(Easing.ease),
+    });
+
+    slideUp.value = withSpring(0, {
+      damping: 15,
+      stiffness: 100,
+    });
+  }, []);
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -56,44 +80,56 @@ export const AuthScreen = ({ navigation }) => {
     }
   };
 
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: fadeIn.value,
+      transform: [{ translateY: slideUp.value }],
+    };
+  });
+
   return (
     <LinearGradient
-      colors={[
-        theme.colors.gradientStart,
-        theme.colors.gradientMid,
-        theme.colors.gradientEnd,
-      ]}
+      colors={['#0a0e27', '#1a1448', '#0f172a']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
       style={styles.container}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.content}>
-          <BrainPulse size={120} pulseSpeed={2000} />
+        <Animated.View style={[styles.content, animatedStyle]}>
+          {/* Brain pulse with glow effect */}
+          <View style={styles.brainWrapper}>
+            <BrainPulse size={160} pulseSpeed={1800} />
+          </View>
 
+          {/* Title section */}
           <View style={styles.titleContainer}>
             <Text style={styles.title}>
               Digital <Text style={styles.titleAccent}>Coffee</Text>
             </Text>
-            <Text style={styles.tagline}>Take control of your mind</Text>
+            <Text style={styles.tagline}>TAKE CONTROL OF YOUR MIND</Text>
           </View>
 
+          {/* Form section */}
           <View style={styles.formContainer}>
             {!isLogin && (
-              <TextInput
-                style={styles.input}
-                placeholder="Name"
-                placeholderTextColor={theme.colors.textMuted}
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
+              <Animated.View style={animatedStyle}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Full Name"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                />
+              </Animated.View>
             )}
 
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder="Email Address"
               placeholderTextColor={theme.colors.textMuted}
               value={email}
               onChangeText={setEmail}
@@ -112,9 +148,10 @@ export const AuthScreen = ({ navigation }) => {
             />
 
             <TouchableOpacity
-              style={styles.submitButton}
+              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
               onPress={handleSubmit}
               disabled={loading}
+              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={[theme.colors.alpha, theme.colors.theta]}
@@ -123,7 +160,7 @@ export const AuthScreen = ({ navigation }) => {
                 style={styles.submitGradient}
               >
                 <Text style={styles.submitText}>
-                  {loading ? 'Please wait...' : isLogin ? 'Login' : 'Sign Up'}
+                  {loading ? 'PLEASE WAIT...' : isLogin ? 'LOGIN' : 'SIGN UP'}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -131,15 +168,19 @@ export const AuthScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.switchButton}
               onPress={() => setIsLogin(!isLogin)}
+              activeOpacity={0.7}
             >
               <Text style={styles.switchText}>
                 {isLogin
-                  ? "Don't have an account? Sign Up"
-                  : 'Already have an account? Login'}
+                  ? "Don't have an account? "
+                  : 'Already have an account? '}
+                <Text style={styles.switchTextBold}>
+                  {isLogin ? 'Sign Up' : 'Login'}
+                </Text>
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -156,61 +197,85 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.xl,
+  },
+  brainWrapper: {
+    marginBottom: theme.spacing.lg,
+    shadowColor: theme.colors.alpha,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   titleContainer: {
     alignItems: 'center',
-    marginTop: theme.spacing.xl,
     marginBottom: theme.spacing.xxl,
   },
   title: {
-    fontSize: theme.fonts.sizes.xxxl,
+    fontSize: 38,
     fontWeight: 'bold',
     color: theme.colors.text,
-    letterSpacing: 2,
+    letterSpacing: 3,
+    marginBottom: theme.spacing.sm,
   },
   titleAccent: {
     color: theme.colors.alpha,
   },
   tagline: {
-    fontSize: theme.fonts.sizes.sm,
+    fontSize: 11,
     color: theme.colors.textSecondary,
-    marginTop: theme.spacing.sm,
-    letterSpacing: 1,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    fontWeight: '300',
   },
   formContainer: {
     width: '100%',
   },
   input: {
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+    backgroundColor: 'rgba(26, 20, 72, 0.6)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md + 2,
     fontSize: theme.fonts.sizes.md,
     color: theme.colors.text,
     marginBottom: theme.spacing.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
   },
   submitButton: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    shadowColor: theme.colors.alpha,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
   submitGradient: {
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.md + 2,
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
   },
   submitText: {
-    fontSize: theme.fonts.sizes.lg,
+    fontSize: theme.fonts.sizes.md,
     color: theme.colors.text,
     fontWeight: 'bold',
+    letterSpacing: 2,
   },
   switchButton: {
-    marginTop: theme.spacing.lg,
+    marginTop: theme.spacing.xl,
     alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
   },
   switchText: {
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  switchTextBold: {
+    color: theme.colors.alpha,
+    fontWeight: 'bold',
   },
 });
 
