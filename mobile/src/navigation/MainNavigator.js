@@ -1,11 +1,58 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, StyleSheet } from 'react-native';
-import DashboardScreen from '../screens/DashboardScreen';
-import CoursesScreen from '../screens/CoursesScreen';
-import ProgressScreen from '../screens/ProgressScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import { View, StyleSheet, Text } from 'react-native';
 import { theme } from '../utils/theme';
+
+// Import screens with error handling
+let DashboardScreen, CoursesScreen, ProgressScreen, ProfileScreen;
+
+try {
+  DashboardScreen = require('../screens/DashboardScreen').default;
+} catch (e) {
+  console.error('Error loading DashboardScreen:', e);
+  DashboardScreen = () => (
+    <View style={errorStyles.container}>
+      <Text style={errorStyles.text}>DashboardScreen Error</Text>
+      <Text style={errorStyles.detail}>{e.message}</Text>
+    </View>
+  );
+}
+
+try {
+  CoursesScreen = require('../screens/CoursesScreen').default;
+} catch (e) {
+  console.error('Error loading CoursesScreen:', e);
+  CoursesScreen = () => (
+    <View style={errorStyles.container}>
+      <Text style={errorStyles.text}>CoursesScreen Error</Text>
+      <Text style={errorStyles.detail}>{e.message}</Text>
+    </View>
+  );
+}
+
+try {
+  ProgressScreen = require('../screens/ProgressScreen').default;
+} catch (e) {
+  console.error('Error loading ProgressScreen:', e);
+  ProgressScreen = () => (
+    <View style={errorStyles.container}>
+      <Text style={errorStyles.text}>ProgressScreen Error</Text>
+      <Text style={errorStyles.detail}>{e.message}</Text>
+    </View>
+  );
+}
+
+try {
+  ProfileScreen = require('../screens/ProfileScreen').default;
+} catch (e) {
+  console.error('Error loading ProfileScreen:', e);
+  ProfileScreen = () => (
+    <View style={errorStyles.container}>
+      <Text style={errorStyles.text}>ProfileScreen Error</Text>
+      <Text style={errorStyles.detail}>{e.message}</Text>
+    </View>
+  );
+}
 
 const Tab = createBottomTabNavigator();
 
@@ -94,7 +141,7 @@ const MainNavigator = () => {
   );
 };
 
-// Simple icon components (you can replace with actual icons later)
+// Simple icon components
 const HomeIcon = ({ color }) => (
   <View style={[styles.icon, { backgroundColor: color + '30' }]}>
     <View style={[styles.iconInner, { borderColor: color }]} />
@@ -118,6 +165,27 @@ const ProfileIcon = ({ color }) => (
     <View style={[styles.iconCircle, { borderColor: color }]} />
   </View>
 );
+
+const errorStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0e27',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  text: {
+    color: '#ff0000',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  detail: {
+    color: '#ff6666',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+});
 
 const styles = StyleSheet.create({
   iconContainer: {
