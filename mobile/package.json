@@ -26,5 +26,8 @@
     "react-native-screens": "^4.24.0",
     "react-native-svg": "^15.15.4"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "babel-preset-expo": "^55.0.20"
+  }
 }
