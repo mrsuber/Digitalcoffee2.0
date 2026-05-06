@@ -1,10 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
+import { View, StyleSheet, Animated, Easing } from 'react-native';
 import { theme } from '../utils/theme';
-
-// For now, using the brain logo image
-// You can replace this with the SVG component if needed
-const brainLogo = require('../../assets/brain-logo.svg');
+import BrainLogoSvg from './BrainLogoSvg';
 
 export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -115,16 +112,11 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
 
       {/* Main brain logo */}
       <Animated.View style={[styles.logoContainer, animatedStyle]}>
-        <Image
-          source={brainLogo}
-          style={[
-            styles.logo,
-            {
-              width: size,
-              height: size,
-            },
-          ]}
-          resizeMode="contain"
+        <BrainLogoSvg
+          size={size}
+          color1={theme.colors.alpha}
+          color2={theme.colors.theta}
+          color3={theme.colors.gamma}
         />
       </Animated.View>
 
@@ -134,9 +126,9 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
           styles.glowInner,
           animatedStyle,
           {
-            width: size * 0.8,
-            height: size * 0.8,
-            borderRadius: (size * 0.8) / 2,
+            width: size * 0.6,
+            height: size * 0.6,
+            borderRadius: (size * 0.6) / 2,
           },
         ]}
       />
@@ -161,14 +153,12 @@ const styles = StyleSheet.create({
   glowInner: {
     position: 'absolute',
     backgroundColor: theme.colors.beta,
-    opacity: 0.2,
+    opacity: 0.15,
   },
   logoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  logo: {
-    tintColor: theme.colors.alpha, // This will colorize the SVG if it's monochrome
+    zIndex: 1,
   },
 });
 
