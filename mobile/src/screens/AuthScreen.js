@@ -86,7 +86,7 @@ export const AuthScreen = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#0a0e27', '#1a1448', '#0f172a']}
+      colors={['#000614', '#000614', '#000614']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
@@ -198,11 +198,6 @@ const styles = StyleSheet.create({
   },
   brainWrapper: {
     marginBottom: theme.spacing.lg,
-    shadowColor: theme.colors.alpha,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   titleContainer: {
     alignItems: 'center',
@@ -240,11 +235,6 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: theme.spacing.lg,
-    shadowColor: theme.colors.alpha,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
   submitButtonDisabled: {
     opacity: 0.7,

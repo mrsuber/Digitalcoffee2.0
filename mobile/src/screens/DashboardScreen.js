@@ -51,7 +51,7 @@ export const DashboardScreen = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#0a0e27', '#1a1448', '#0f172a']}
+      colors={['#000614', '#000614', '#000614']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}

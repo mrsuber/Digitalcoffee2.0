@@ -3,30 +3,30 @@
 
 export const theme = {
   colors: {
-    // Primary colors
-    primary: '#0f172a',      // Deep blue background
-    secondary: '#312e81',    // Dark purple
-    accent: '#0d9488',       // Soft teal
+    // Primary colors - matched to logo's cosmic theme
+    primary: '#000614',      // Pure dark background
+    secondary: '#1a1535',    // Deep purple-blue
+    accent: '#00d9ff',       // Bright cyan (logo glow)
 
-    // Gradients
-    gradientStart: '#0f172a',
-    gradientMid: '#1e1b4b',
-    gradientEnd: '#312e81',
+    // Gradients - cosmic starry theme to match logo
+    gradientStart: '#000614',   // Pure dark background
+    gradientMid: '#000614',     // Pure dark background
+    gradientEnd: '#000614',     // Pure dark background
 
-    // Brain wave / pulse colors
-    alpha: '#0d9488',       // Teal - calm focus
-    beta: '#3b82f6',        // Blue - active thinking
-    theta: '#8b5cf6',       // Purple - deep meditation
+    // Brain wave / pulse colors - enhanced for logo harmony
+    alpha: '#00d9ff',       // Bright cyan - calm focus (matches logo ring)
+    beta: '#5b8fff',        // Bright blue - active thinking
+    theta: '#a855f7',       // Purple - deep meditation (matches logo brain)
     delta: '#6366f1',       // Indigo - sleep
-    gamma: '#ec4899',       // Pink - peak awareness
+    gamma: '#ff6ec7',       // Pink - peak awareness (matches logo highlights)
 
-    // UI colors
-    background: '#0a0e27',
-    cardBackground: '#1a1f3a',
-    border: '#2d3348',
+    // UI colors - darker to blend with logo
+    background: '#000614',     // Pure dark background
+    cardBackground: 'rgba(15, 20, 40, 0.7)',  // Semi-transparent dark blue
+    border: 'rgba(91, 143, 255, 0.2)',        // Subtle blue border
     text: '#ffffff',
-    textSecondary: '#9ca3af',
-    textMuted: '#6b7280',
+    textSecondary: '#a0b0d0',  // Lighter blue-gray
+    textMuted: '#6b7a95',      // Muted blue-gray
 
     // Status colors
     success: '#10b981',
