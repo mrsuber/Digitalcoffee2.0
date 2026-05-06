@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
 import BrainPulse from '../components/BrainPulse';
+import StarField from '../components/StarField';
 
 export const AuthScreen = ({ navigation }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -91,6 +92,9 @@ export const AuthScreen = ({ navigation }) => {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
+      {/* Starfield background */}
+      <StarField starCount={150} />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}

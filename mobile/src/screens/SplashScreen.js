@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions, Animated, Easing } from 'react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
 import BrainPulse from '../components/BrainPulse';
+import StarField from '../components/StarField';
 
 const { width, height } = Dimensions.get('window');
 
@@ -80,8 +81,8 @@ export const SplashScreen = ({ onComplete }) => {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      {/* Background stars/particles effect */}
-      <Animated.View style={[styles.glowBackground, { opacity: glowOpacity }]} />
+      {/* Starfield background */}
+      <StarField starCount={150} />
 
       <Animated.View style={[styles.content, animatedStyle]}>
         {/* Main brain visualization */}
