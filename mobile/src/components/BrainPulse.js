@@ -1,60 +1,62 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
 
 export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 }) => {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(0.8);
+  const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     // Pulse animation
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.15, {
+    const scaleAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, {
+          toValue: 1.15,
           duration: pulseSpeed,
           easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
         }),
-        withTiming(1, {
+        Animated.timing(scale, {
+          toValue: 1,
           duration: pulseSpeed,
           easing: Easing.inOut(Easing.ease),
-        })
-      ),
-      -1,
-      false
+          useNativeDriver: true,
+        }),
+      ])
     );
 
     // Glow animation
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, {
+    const opacityAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
           duration: pulseSpeed,
           easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
         }),
-        withTiming(0.6, {
+        Animated.timing(opacity, {
+          toValue: 0.6,
           duration: pulseSpeed,
           easing: Easing.inOut(Easing.ease),
-        })
-      ),
-      -1,
-      false
+          useNativeDriver: true,
+        }),
+      ])
     );
-  }, [pulseSpeed]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-      opacity: opacity.value,
+    scaleAnim.start();
+    opacityAnim.start();
+
+    return () => {
+      scaleAnim.stop();
+      opacityAnim.stop();
     };
-  });
+  }, [pulseSpeed, scale, opacity]);
+
+  const animatedStyle = {
+    transform: [{ scale }],
+    opacity,
+  };
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
@@ -69,7 +71,7 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
             borderRadius: size / 2,
             borderWidth: 2,
             borderColor: theme.colors.alpha,
-          }
+          },
         ]}
       />
 
@@ -84,18 +86,14 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
             borderRadius: (size * 0.85) / 2,
             borderWidth: 1.5,
             borderColor: theme.colors.theta,
-          }
+          },
         ]}
       />
 
       {/* Core gradient circle */}
       <Animated.View style={[animatedStyle, styles.core]}>
         <LinearGradient
-          colors={[
-            theme.colors.alpha,
-            theme.colors.theta,
-            theme.colors.beta,
-          ]}
+          colors={[theme.colors.alpha, theme.colors.theta, theme.colors.beta]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -104,7 +102,7 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
               width: size * 0.7,
               height: size * 0.7,
               borderRadius: (size * 0.7) / 2,
-            }
+            },
           ]}
         />
       </Animated.View>
@@ -119,7 +117,7 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
             height: size * 0.4,
             borderRadius: (size * 0.4) / 2,
             backgroundColor: theme.colors.alpha,
-          }
+          },
         ]}
       />
     </View>

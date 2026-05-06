@@ -1,14 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  withRepeat,
-  withSequence,
-  Easing,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
 import BrainPulse from '../components/BrainPulse';
@@ -16,39 +7,51 @@ import BrainPulse from '../components/BrainPulse';
 const { width, height } = Dimensions.get('window');
 
 export const SplashScreen = ({ onComplete }) => {
-  const fadeIn = useSharedValue(0);
-  const slideUp = useSharedValue(50);
-  const progressWidth = useSharedValue(0);
-  const glowOpacity = useSharedValue(0.5);
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(50)).current;
+  const progressWidth = useRef(new Animated.Value(0)).current;
+  const glowOpacity = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
     // Fade in animation
-    fadeIn.value = withTiming(1, {
+    Animated.timing(fadeIn, {
+      toValue: 1,
       duration: 800,
       easing: Easing.inOut(Easing.ease),
-    });
+      useNativeDriver: true,
+    }).start();
 
     // Slide up animation
-    slideUp.value = withTiming(0, {
+    Animated.timing(slideUp, {
+      toValue: 0,
       duration: 1000,
       easing: Easing.out(Easing.back(1.2)),
-    });
+      useNativeDriver: true,
+    }).start();
 
     // Progress bar animation
-    progressWidth.value = withTiming(100, {
+    Animated.timing(progressWidth, {
+      toValue: 100,
       duration: 2300,
       easing: Easing.inOut(Easing.ease),
-    });
+      useNativeDriver: false, // width animation requires false
+    }).start();
 
     // Glow pulse animation
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 1000 }),
-        withTiming(0.3, { duration: 1000 })
-      ),
-      -1,
-      true
-    );
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowOpacity, {
+          toValue: 0.8,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowOpacity, {
+          toValue: 0.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
     // Navigate to next screen after 2.5 seconds
     const timeout = setTimeout(() => {
@@ -58,24 +61,17 @@ export const SplashScreen = ({ onComplete }) => {
     return () => clearTimeout(timeout);
   }, [onComplete]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: fadeIn.value,
-      transform: [{ translateY: slideUp.value }],
-    };
-  });
+  const animatedStyle = {
+    opacity: fadeIn,
+    transform: [{ translateY: slideUp }],
+  };
 
-  const progressStyle = useAnimatedStyle(() => {
-    return {
-      width: `${progressWidth.value}%`,
-    };
-  });
-
-  const glowStyle = useAnimatedStyle(() => {
-    return {
-      opacity: glowOpacity.value,
-    };
-  });
+  const progressStyle = {
+    width: progressWidth.interpolate({
+      inputRange: [0, 100],
+      outputRange: ['0%', '100%'],
+    }),
+  };
 
   return (
     <LinearGradient
@@ -85,7 +81,7 @@ export const SplashScreen = ({ onComplete }) => {
       style={styles.container}
     >
       {/* Background stars/particles effect */}
-      <Animated.View style={[styles.glowBackground, glowStyle]} />
+      <Animated.View style={[styles.glowBackground, { opacity: glowOpacity }]} />
 
       <Animated.View style={[styles.content, animatedStyle]}>
         {/* Main brain visualization */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-} from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
+  Animated,
   Easing,
-} from 'react-native-reanimated';
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
@@ -31,20 +26,24 @@ export const AuthScreen = ({ navigation }) => {
   const { login, register } = useAuth();
 
   // Animations
-  const fadeIn = useSharedValue(0);
-  const slideUp = useSharedValue(30);
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     // Entrance animations
-    fadeIn.value = withTiming(1, {
+    Animated.timing(fadeIn, {
+      toValue: 1,
       duration: 800,
       easing: Easing.inOut(Easing.ease),
-    });
+      useNativeDriver: true,
+    }).start();
 
-    slideUp.value = withSpring(0, {
-      damping: 15,
-      stiffness: 100,
-    });
+    Animated.spring(slideUp, {
+      toValue: 0,
+      tension: 100,
+      friction: 15,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   const handleSubmit = async () => {
@@ -80,12 +79,10 @@ export const AuthScreen = ({ navigation }) => {
     }
   };
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: fadeIn.value,
-      transform: [{ translateY: slideUp.value }],
-    };
-  });
+  const animatedStyle = {
+    opacity: fadeIn,
+    transform: [{ translateY: slideUp }],
+  };
 
   return (
     <LinearGradient

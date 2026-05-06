@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-} from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
+  Animated,
   Easing,
-} from 'react-native-reanimated';
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
 import BrainPulse from '../components/BrainPulse';
@@ -25,25 +19,29 @@ const { width } = Dimensions.get('window');
 export const DashboardScreen = ({ navigation }) => {
   const { user } = useAuth();
 
-  const fadeIn = useSharedValue(0);
-  const slideUp = useSharedValue(20);
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    fadeIn.value = withTiming(1, {
+    Animated.timing(fadeIn, {
+      toValue: 1,
       duration: 600,
       easing: Easing.out(Easing.ease),
-    });
+      useNativeDriver: true,
+    }).start();
 
-    slideUp.value = withTiming(0, {
+    Animated.timing(slideUp, {
+      toValue: 0,
       duration: 700,
       easing: Easing.out(Easing.back(1.1)),
-    });
+      useNativeDriver: true,
+    }).start();
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: fadeIn.value,
-    transform: [{ translateY: slideUp.value }],
-  }));
+  const animatedStyle = {
+    opacity: fadeIn,
+    transform: [{ translateY: slideUp }],
+  };
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
