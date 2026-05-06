@@ -14,18 +14,14 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { theme } from '../utils/theme';
-import { useAuth } from '../context/AuthContext';
+import { authAPI } from '../services/api';
 import BrainPulse from '../components/BrainPulse';
 import StarField from '../components/StarField';
 
-export const AuthScreen = ({ navigation }) => {
-  const [isLogin, setIsLogin] = useState(true);
+export const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const { login, register } = useAuth();
+  const [emailSent, setEmailSent] = useState(false);
 
   // Animations
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -49,33 +45,46 @@ export const AuthScreen = ({ navigation }) => {
   }, []);
 
   const handleSubmit = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    // Simple email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
     setLoading(true);
 
     try {
-      let result;
-      if (isLogin) {
-        result = await login(email, password);
-      } else {
-        if (!name) {
-          Alert.alert('Error', 'Please enter your name');
-          setLoading(false);
-          return;
-        }
-        result = await register(email, password, name);
-      }
+      const result = await authAPI.forgotPassword(email);
 
       if (result.success) {
-        navigation.replace('MoodCheck');
+        setEmailSent(true);
+        Alert.alert(
+          'Email Sent',
+          'If an account exists with this email, you will receive password reset instructions.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Auth'),
+            },
+          ]
+        );
       } else {
-        Alert.alert('Error', result.message || 'Authentication failed');
+        Alert.alert('Error', result.message || 'Failed to send reset email');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      console.error('Forgot password error:', error);
+      Alert.alert(
+        'Success',
+        'If an account exists with this email, you will receive password reset instructions.'
+      );
+      // For security reasons, we show success even on error to prevent email enumeration
+      setEmailSent(true);
     } finally {
       setLoading(false);
     }
@@ -103,48 +112,34 @@ export const AuthScreen = ({ navigation }) => {
         <Animated.View style={[styles.content, animatedStyle]}>
           {/* Brain pulse with glow effect */}
           <View style={styles.brainWrapper}>
-            <BrainPulse size={160} pulseSpeed={1800} />
+            <BrainPulse size={120} pulseSpeed={1800} />
           </View>
 
           {/* Title section */}
           <View style={styles.titleContainer}>
-            <View style={styles.titleRow}>
-              <Text style={styles.title}>Digital </Text>
-              <MaskedView
-                maskElement={
-                  <Text style={[styles.title, styles.titleAccent]}>Coffee</Text>
-                }
+            <MaskedView
+              maskElement={
+                <Text style={styles.title}>Forgot Password</Text>
+              }
+            >
+              <LinearGradient
+                colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientText}
               >
-                <LinearGradient
-                  colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.gradientText}
-                >
-                  <Text style={[styles.title, styles.titleAccent, { opacity: 0 }]}>
-                    Coffee
-                  </Text>
-                </LinearGradient>
-              </MaskedView>
-            </View>
-            <Text style={styles.tagline}>TAKE CONTROL OF YOUR MIND</Text>
+                <Text style={[styles.title, { opacity: 0 }]}>
+                  Forgot Password
+                </Text>
+              </LinearGradient>
+            </MaskedView>
+            <Text style={styles.subtitle}>
+              Enter your email address and we'll send you instructions to reset your password.
+            </Text>
           </View>
 
           {/* Form section */}
           <View style={styles.formContainer}>
-            {!isLogin && (
-              <Animated.View style={animatedStyle}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Full Name"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
-                />
-              </Animated.View>
-            )}
-
             <TextInput
               style={styles.input}
               placeholder="Email Address"
@@ -153,62 +148,36 @@ export const AuthScreen = ({ navigation }) => {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={!emailSent}
             />
-
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={theme.colors.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-
-            {isLogin && (
-              <TouchableOpacity
-                style={styles.forgotPasswordButton}
-                onPress={() => navigation.navigate('ForgotPassword')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-              </TouchableOpacity>
-            )}
 
             <TouchableOpacity
               style={[styles.submitButton, loading && styles.submitButtonDisabled]}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || emailSent}
               activeOpacity={0.8}
             >
-              {/* Gradient border layer */}
               <LinearGradient
                 colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.submitGradientBorder}
               >
-                {/* Inner transparent background */}
                 <View style={styles.submitInner}>
                   <Text style={styles.submitText}>
-                    {loading ? 'PLEASE WAIT...' : isLogin ? 'LOGIN' : 'SIGN UP'}
+                    {loading ? 'SENDING...' : emailSent ? 'EMAIL SENT' : 'SEND RESET LINK'}
                   </Text>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.switchButton}
-              onPress={() => setIsLogin(!isLogin)}
+              style={styles.backButton}
+              onPress={() => navigation.navigate('Auth')}
               activeOpacity={0.7}
             >
-              <Text style={styles.switchText}>
-                {isLogin
-                  ? "Don't have an account? "
-                  : 'Already have an account? '}
-                <Text style={styles.switchTextBold}>
-                  {isLogin ? 'Sign Up' : 'Login'}
-                </Text>
+              <Text style={styles.backText}>
+                ← Back to Login
               </Text>
             </TouchableOpacity>
           </View>
@@ -238,29 +207,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.xxl,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
   title: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: 'bold',
     color: theme.colors.text,
-    letterSpacing: 3,
-  },
-  titleAccent: {
-    color: theme.colors.alpha,
+    letterSpacing: 2,
+    marginBottom: theme.spacing.md,
   },
   gradientText: {
     paddingVertical: 2,
   },
-  tagline: {
-    fontSize: 11,
+  subtitle: {
+    fontSize: 14,
     color: theme.colors.textSecondary,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    fontWeight: '300',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: theme.spacing.md,
   },
   formContainer: {
     width: '100%',
@@ -275,16 +237,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(59, 130, 246, 0.2)',
   },
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-    marginTop: -theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  forgotPasswordText: {
-    fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.alpha,
-    fontWeight: '600',
-  },
   submitButton: {
     marginTop: theme.spacing.lg,
   },
@@ -292,12 +244,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitGradientBorder: {
-    padding: 2, // 2px border width
+    padding: 2,
     borderRadius: 30,
     alignItems: 'center',
   },
   submitInner: {
-    backgroundColor: 'rgba(0, 6, 20, 0.6)', // Semi-transparent dark background
+    backgroundColor: 'rgba(0, 6, 20, 0.6)',
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.xl,
     borderRadius: 28,
@@ -310,20 +262,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 2,
   },
-  switchButton: {
+  backButton: {
     marginTop: theme.spacing.xl,
     alignItems: 'center',
     paddingVertical: theme.spacing.sm,
   },
-  switchText: {
+  backText: {
     fontSize: theme.fonts.sizes.sm,
-    color: theme.colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  switchTextBold: {
     color: theme.colors.alpha,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });
 
-export default AuthScreen;
+export default ForgotPasswordScreen;

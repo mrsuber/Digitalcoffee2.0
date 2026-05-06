@@ -8,7 +8,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { AuthProvider } from './src/context/AuthContext';
 
 // Import screens with error boundaries
-let SplashScreen, AuthScreen, MoodCheckScreen, MindModeScreen, MainNavigator;
+let SplashScreen, AuthScreen, ForgotPasswordScreen, ResetPasswordScreen, MoodCheckScreen, MindModeScreen, MainNavigator;
 
 try {
   SplashScreen = require('./src/screens/SplashScreen').default;
@@ -22,6 +22,20 @@ try {
 } catch (e) {
   console.error('Error loading AuthScreen:', e);
   AuthScreen = () => <View style={styles.error}><Text style={styles.errorText}>AuthScreen Error</Text></View>;
+}
+
+try {
+  ForgotPasswordScreen = require('./src/screens/ForgotPasswordScreen').default;
+} catch (e) {
+  console.error('Error loading ForgotPasswordScreen:', e);
+  ForgotPasswordScreen = () => <View style={styles.error}><Text style={styles.errorText}>ForgotPasswordScreen Error</Text></View>;
+}
+
+try {
+  ResetPasswordScreen = require('./src/screens/ResetPasswordScreen').default;
+} catch (e) {
+  console.error('Error loading ResetPasswordScreen:', e);
+  ResetPasswordScreen = () => <View style={styles.error}><Text style={styles.errorText}>ResetPasswordScreen Error</Text></View>;
 }
 
 try {
@@ -74,6 +88,8 @@ export default function App() {
           }}
         >
           <Stack.Screen name="Auth" component={AuthScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen name="MoodCheck" component={MoodCheckScreen} />
           <Stack.Screen name="MindModeSelection" component={MindModeScreen} />
           <Stack.Screen name="Main" component={MainNavigator} />
