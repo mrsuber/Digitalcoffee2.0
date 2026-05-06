@@ -1,18 +1,22 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
 import { theme } from '../utils/theme';
+
+// For now, using the brain logo image
+// You can replace this with the SVG component if needed
+const brainLogo = require('../../assets/brain-logo.svg');
 
 export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 }) => {
   const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(0.8)).current;
+  const opacity = useRef(new Animated.Value(0.9)).current;
+  const rotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Pulse animation
+    // Pulse animation - scale
     const scaleAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(scale, {
-          toValue: 1.15,
+          toValue: 1.08,
           duration: pulseSpeed,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
@@ -26,97 +30,113 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
       ])
     );
 
-    // Glow animation
+    // Glow animation - opacity
     const opacityAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
           toValue: 1,
-          duration: pulseSpeed,
+          duration: pulseSpeed * 0.8,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 0.6,
-          duration: pulseSpeed,
+          toValue: 0.7,
+          duration: pulseSpeed * 0.8,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ])
     );
 
+    // Very slow rotation for subtle effect
+    const rotateAnim = Animated.loop(
+      Animated.timing(rotate, {
+        toValue: 1,
+        duration: 60000, // 60 seconds for full rotation
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
     scaleAnim.start();
     opacityAnim.start();
+    rotateAnim.start();
 
     return () => {
       scaleAnim.stop();
       opacityAnim.stop();
+      rotateAnim.stop();
     };
-  }, [pulseSpeed, scale, opacity]);
+  }, [pulseSpeed, scale, opacity, rotate]);
+
+  const spin = rotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   const animatedStyle = {
-    transform: [{ scale }],
+    transform: [{ scale }, { rotate: spin }],
     opacity,
   };
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      {/* Outer glow rings */}
+      {/* Outer glow effect */}
       <Animated.View
         style={[
-          styles.ring,
-          animatedStyle,
+          styles.glowOuter,
           {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: 2,
-            borderColor: theme.colors.alpha,
+            width: size * 1.3,
+            height: size * 1.3,
+            borderRadius: (size * 1.3) / 2,
+            opacity: opacity.interpolate({
+              inputRange: [0.7, 1],
+              outputRange: [0.1, 0.3],
+            }),
           },
         ]}
       />
 
-      {/* Middle ring */}
+      {/* Middle glow ring */}
       <Animated.View
         style={[
-          styles.ring,
-          animatedStyle,
+          styles.glowMiddle,
           {
-            width: size * 0.85,
-            height: size * 0.85,
-            borderRadius: (size * 0.85) / 2,
-            borderWidth: 1.5,
-            borderColor: theme.colors.theta,
+            width: size * 1.15,
+            height: size * 1.15,
+            borderRadius: (size * 1.15) / 2,
+            opacity: opacity.interpolate({
+              inputRange: [0.7, 1],
+              outputRange: [0.2, 0.4],
+            }),
           },
         ]}
       />
 
-      {/* Core gradient circle */}
-      <Animated.View style={[animatedStyle, styles.core]}>
-        <LinearGradient
-          colors={[theme.colors.alpha, theme.colors.theta, theme.colors.beta]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      {/* Main brain logo */}
+      <Animated.View style={[styles.logoContainer, animatedStyle]}>
+        <Image
+          source={brainLogo}
           style={[
-            styles.gradientCore,
+            styles.logo,
             {
-              width: size * 0.7,
-              height: size * 0.7,
-              borderRadius: (size * 0.7) / 2,
+              width: size,
+              height: size,
             },
           ]}
+          resizeMode="contain"
         />
       </Animated.View>
 
-      {/* Inner pulse */}
+      {/* Inner glow */}
       <Animated.View
         style={[
-          styles.innerPulse,
+          styles.glowInner,
           animatedStyle,
           {
-            width: size * 0.4,
-            height: size * 0.4,
-            borderRadius: (size * 0.4) / 2,
-            backgroundColor: theme.colors.alpha,
+            width: size * 0.8,
+            height: size * 0.8,
+            borderRadius: (size * 0.8) / 2,
           },
         ]}
       />
@@ -128,19 +148,27 @@ const styles = StyleSheet.create({
   container: {
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
-  ring: {
+  glowOuter: {
     position: 'absolute',
-    borderWidth: 2,
+    backgroundColor: theme.colors.alpha,
   },
-  core: {
+  glowMiddle: {
     position: 'absolute',
+    backgroundColor: theme.colors.theta,
   },
-  gradientCore: {
-    // gradient styles applied inline
-  },
-  innerPulse: {
+  glowInner: {
     position: 'absolute',
+    backgroundColor: theme.colors.beta,
+    opacity: 0.2,
+  },
+  logoContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
+    tintColor: theme.colors.alpha, // This will colorize the SVG if it's monochrome
   },
 });
 

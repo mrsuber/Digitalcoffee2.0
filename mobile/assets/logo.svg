@@ -1,0 +1,116 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle with Gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f0f1e;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="coffeeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4A574;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B6F47;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="steamGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </linearGradient>
+
+    <linearGradient id="digitalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="512" cy="512" r="512" fill="url(#bgGradient)"/>
+
+  <!-- Coffee Cup Body -->
+  <path d="M 350 450 L 320 750 C 320 780 340 800 370 800 L 654 800 C 684 800 704 780 704 750 L 674 450 Z"
+        fill="url(#coffeeGradient)"
+        stroke="#6B5333"
+        stroke-width="8"/>
+
+  <!-- Coffee Cup Handle -->
+  <path d="M 704 520 Q 780 520 780 590 Q 780 660 704 660"
+        fill="none"
+        stroke="#6B5333"
+        stroke-width="12"
+        stroke-linecap="round"/>
+
+  <!-- Inner Handle Detail -->
+  <path d="M 704 540 Q 760 540 760 590 Q 760 640 704 640"
+        fill="none"
+        stroke="url(#coffeeGradient)"
+        stroke-width="8"
+        stroke-linecap="round"/>
+
+  <!-- Coffee Liquid Surface -->
+  <ellipse cx="512" cy="460" rx="170" ry="30" fill="#3D2817" opacity="0.6"/>
+
+  <!-- Digital Wave Pattern in Coffee -->
+  <g opacity="0.4">
+    <!-- Binary/Digital Pattern -->
+    <circle cx="460" cy="470" r="3" fill="#667eea"/>
+    <circle cx="480" cy="465" r="2" fill="#764ba2"/>
+    <circle cx="500" cy="475" r="3" fill="#f093fb"/>
+    <circle cx="520" cy="468" r="2" fill="#667eea"/>
+    <circle cx="540" cy="472" r="3" fill="#764ba2"/>
+    <circle cx="560" cy="465" r="2" fill="#f093fb"/>
+
+    <!-- Digital dots pattern -->
+    <rect x="470" y="485" width="4" height="4" rx="1" fill="#667eea"/>
+    <rect x="490" y="490" width="3" height="3" rx="1" fill="#764ba2"/>
+    <rect x="510" y="487" width="4" height="4" rx="1" fill="#f093fb"/>
+    <rect x="530" y="492" width="3" height="3" rx="1" fill="#667eea"/>
+    <rect x="550" y="488" width="4" height="4" rx="1" fill="#764ba2"/>
+  </g>
+
+  <!-- Steam Lines with Digital Effect -->
+  <g opacity="0.7">
+    <!-- Left Steam Wave -->
+    <path d="M 420 420 Q 400 380 420 340 Q 440 300 420 260"
+          stroke="url(#steamGradient)"
+          stroke-width="6"
+          fill="none"
+          stroke-linecap="round"/>
+
+    <!-- Center Steam Wave -->
+    <path d="M 512 420 Q 532 380 512 340 Q 492 300 512 260"
+          stroke="url(#steamGradient)"
+          stroke-width="8"
+          fill="none"
+          stroke-linecap="round"/>
+
+    <!-- Right Steam Wave -->
+    <path d="M 604 420 Q 624 380 604 340 Q 584 300 604 260"
+          stroke="url(#steamGradient)"
+          stroke-width="6"
+          fill="none"
+          stroke-linecap="round"/>
+
+    <!-- Digital particles in steam -->
+    <circle cx="425" cy="350" r="3" fill="#667eea" opacity="0.6"/>
+    <circle cx="515" cy="320" r="4" fill="#764ba2" opacity="0.6"/>
+    <circle cx="600" cy="340" r="3" fill="#f093fb" opacity="0.6"/>
+    <rect x="440" y="290" width="3" height="3" rx="1" fill="#667eea" opacity="0.5"/>
+    <rect x="530" y="270" width="4" height="4" rx="1" fill="#f093fb" opacity="0.5"/>
+    <rect x="580" y="300" width="3" height="3" rx="1" fill="#764ba2" opacity="0.5"/>
+  </g>
+
+  <!-- Digital Accent Ring around cup -->
+  <circle cx="512" cy="625" r="190"
+          fill="none"
+          stroke="url(#digitalGradient)"
+          stroke-width="3"
+          opacity="0.3"
+          stroke-dasharray="10 5"/>
+
+  <!-- Coffee Cup Rim Highlight -->
+  <ellipse cx="512" cy="450" rx="177" ry="32"
+           fill="none"
+           stroke="#B8956A"
+           stroke-width="2"
+           opacity="0.6"/>
+</svg>
