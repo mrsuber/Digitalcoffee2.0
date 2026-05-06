@@ -12,6 +12,7 @@ import {
   Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
 import BrainPulse from '../components/BrainPulse';
@@ -107,9 +108,25 @@ export const AuthScreen = ({ navigation }) => {
 
           {/* Title section */}
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>
-              Digital <Text style={styles.titleAccent}>Coffee</Text>
-            </Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Digital </Text>
+              <MaskedView
+                maskElement={
+                  <Text style={[styles.title, styles.titleAccent]}>Coffee</Text>
+                }
+              >
+                <LinearGradient
+                  colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientText}
+                >
+                  <Text style={[styles.title, styles.titleAccent, { opacity: 0 }]}>
+                    Coffee
+                  </Text>
+                </LinearGradient>
+              </MaskedView>
+            </View>
             <Text style={styles.tagline}>TAKE CONTROL OF YOUR MIND</Text>
           </View>
 
@@ -154,15 +171,19 @@ export const AuthScreen = ({ navigation }) => {
               disabled={loading}
               activeOpacity={0.8}
             >
+              {/* Gradient border layer */}
               <LinearGradient
                 colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.submitGradient}
+                style={styles.submitGradientBorder}
               >
-                <Text style={styles.submitText}>
-                  {loading ? 'PLEASE WAIT...' : isLogin ? 'LOGIN' : 'SIGN UP'}
-                </Text>
+                {/* Inner transparent background */}
+                <View style={styles.submitInner}>
+                  <Text style={styles.submitText}>
+                    {loading ? 'PLEASE WAIT...' : isLogin ? 'LOGIN' : 'SIGN UP'}
+                  </Text>
+                </View>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -207,15 +228,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.xxl,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
   title: {
     fontSize: 38,
     fontWeight: 'bold',
     color: theme.colors.text,
     letterSpacing: 3,
-    marginBottom: theme.spacing.sm,
   },
   titleAccent: {
     color: theme.colors.alpha,
+  },
+  gradientText: {
+    paddingVertical: 2,
   },
   tagline: {
     fontSize: 11,
@@ -243,9 +271,17 @@ const styles = StyleSheet.create({
   submitButtonDisabled: {
     opacity: 0.7,
   },
-  submitGradient: {
-    paddingVertical: theme.spacing.md + 2,
+  submitGradientBorder: {
+    padding: 2, // 2px border width
     borderRadius: 30,
+    alignItems: 'center',
+  },
+  submitInner: {
+    backgroundColor: 'rgba(0, 6, 20, 0.6)', // Semi-transparent dark background
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: 28,
+    width: '100%',
     alignItems: 'center',
   },
   submitText: {
