@@ -1,8 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const { generateToken } = require('../middleware/auth');
+const { sendPasswordResetEmail } = require('../utils/emailService');
 
 const router = express.Router();
 
@@ -144,6 +146,178 @@ router.post('/login',
       res.status(500).json({
         success: false,
         message: 'Error logging in'
+      });
+    }
+  }
+);
+
+// Forgot password - Request reset
+router.post('/forgot-password',
+  [
+    body('email').isEmail().normalizeEmail()
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+
+    try {
+      // Check if user exists
+      const userResult = await db.query(
+        'SELECT id, email, name FROM users WHERE email = $1',
+        [email]
+      );
+
+      // Always return success to prevent email enumeration
+      if (userResult.rows.length === 0) {
+        return res.json({
+          success: true,
+          message: 'If an account with that email exists, a password reset link has been sent.'
+        });
+      }
+
+      const user = userResult.rows[0];
+
+      // Generate secure reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+      // Token expires in 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      // Delete any existing tokens for this user
+      await db.query(
+        'DELETE FROM password_reset_tokens WHERE user_id = $1',
+        [user.id]
+      );
+
+      // Store hashed token in database
+      await db.query(
+        'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+        [user.id, hashedToken, expiresAt]
+      );
+
+      // Send reset email with original token (not hashed)
+      await sendPasswordResetEmail(user.email, resetToken);
+
+      res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent.'
+      });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error processing password reset request'
+      });
+    }
+  }
+);
+
+// Reset password - Set new password
+router.post('/reset-password',
+  [
+    body('token').notEmpty().trim(),
+    body('newPassword').isLength({ min: 6 })
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { token, newPassword } = req.body;
+
+    try {
+      // Hash the token to compare with stored hash
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+      // Find valid token
+      const tokenResult = await db.query(
+        `SELECT prt.id, prt.user_id, prt.expires_at, u.email, u.name
+         FROM password_reset_tokens prt
+         JOIN users u ON u.id = prt.user_id
+         WHERE prt.token = $1 AND prt.used = false AND prt.expires_at > NOW()`,
+        [hashedToken]
+      );
+
+      if (tokenResult.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired reset token'
+        });
+      }
+
+      const resetRecord = tokenResult.rows[0];
+
+      // Hash new password
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+
+      // Update user password
+      await db.query(
+        'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+        [passwordHash, resetRecord.user_id]
+      );
+
+      // Mark token as used
+      await db.query(
+        'UPDATE password_reset_tokens SET used = true WHERE id = $1',
+        [resetRecord.id]
+      );
+
+      res.json({
+        success: true,
+        message: 'Password has been reset successfully. You can now login with your new password.'
+      });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error resetting password'
+      });
+    }
+  }
+);
+
+// Verify reset token (optional - for checking if token is valid before showing form)
+router.get('/verify-reset-token/:token',
+  async (req, res) => {
+    const { token } = req.params;
+
+    try {
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+      const tokenResult = await db.query(
+        `SELECT id FROM password_reset_tokens
+         WHERE token = $1 AND used = false AND expires_at > NOW()`,
+        [hashedToken]
+      );
+
+      if (tokenResult.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired reset token'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Token is valid'
+      });
+    } catch (error) {
+      console.error('Verify token error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error verifying token'
       });
     }
   }
