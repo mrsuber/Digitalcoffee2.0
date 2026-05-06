@@ -7,7 +7,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Animated,
   Easing,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { theme } from '../utils/theme';
 import { authAPI } from '../services/api';
 import BrainPulse from '../components/BrainPulse';
 import StarField from '../components/StarField';
+import { useAlert } from '../components/CustomAlert';
 
 export const ResetPasswordScreen = ({ route, navigation }) => {
   const [newPassword, setNewPassword] = useState('');
@@ -24,6 +24,10 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const { showAlert, AlertComponent } = useAlert();
 
   // Get token from route params or deep link
   const token = route.params?.token || '';
@@ -54,11 +58,17 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
 
   const verifyToken = async () => {
     if (!token) {
-      Alert.alert(
-        'Invalid Link',
-        'This password reset link is invalid. Please request a new one.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Auth') }]
-      );
+      showAlert({
+        type: 'error',
+        title: 'Invalid Link',
+        message: 'This password reset link is invalid. Please request a new one.',
+        buttons: [
+          {
+            text: 'Back to Login',
+            onPress: () => navigation.navigate('Auth'),
+          },
+        ],
+      });
       return;
     }
 
@@ -67,19 +77,41 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
       if (result.success) {
         setTokenValid(true);
       } else {
-        Alert.alert(
-          'Expired Link',
-          'This password reset link has expired. Please request a new one.',
-          [{ text: 'OK', onPress: () => navigation.navigate('Auth') }]
-        );
+        showAlert({
+          type: 'error',
+          title: 'Expired Link',
+          message: 'This password reset link has expired. Please request a new one.',
+          buttons: [
+            {
+              text: 'Request New Link',
+              onPress: () => navigation.navigate('ForgotPassword'),
+            },
+            {
+              text: 'Back to Login',
+              style: 'cancel',
+              onPress: () => navigation.navigate('Auth'),
+            },
+          ],
+        });
       }
     } catch (error) {
       console.error('Token verification error:', error);
-      Alert.alert(
-        'Invalid Link',
-        'This password reset link is invalid or has expired. Please request a new one.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Auth') }]
-      );
+      showAlert({
+        type: 'error',
+        title: 'Invalid Link',
+        message: 'This password reset link is invalid or has expired. Please request a new one.',
+        buttons: [
+          {
+            text: 'Request New Link',
+            onPress: () => navigation.navigate('ForgotPassword'),
+          },
+          {
+            text: 'Back to Login',
+            style: 'cancel',
+            onPress: () => navigation.navigate('Auth'),
+          },
+        ],
+      });
     } finally {
       setVerifying(false);
     }
@@ -88,17 +120,29 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
   const handleSubmit = async () => {
     // Validate inputs
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert({
+        type: 'error',
+        title: 'Fields Required',
+        message: 'Please fill in all password fields',
+      });
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      showAlert({
+        type: 'error',
+        title: 'Password Too Short',
+        message: 'Password must be at least 6 characters long',
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showAlert({
+        type: 'error',
+        title: 'Passwords Don\'t Match',
+        message: 'Please make sure both passwords match',
+      });
       return;
     }
 
@@ -108,25 +152,31 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
       const result = await authAPI.resetPassword(token, newPassword);
 
       if (result.success) {
-        Alert.alert(
-          'Success',
-          'Your password has been reset successfully. You can now login with your new password.',
-          [
+        showAlert({
+          type: 'success',
+          title: 'Password Reset!',
+          message: 'Your password has been reset successfully. You can now login with your new password.',
+          buttons: [
             {
-              text: 'OK',
+              text: 'Go to Login',
               onPress: () => navigation.navigate('Auth'),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', result.message || 'Failed to reset password');
+        showAlert({
+          type: 'error',
+          title: 'Reset Failed',
+          message: result.message || 'Failed to reset password. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Reset password error:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Something went wrong. Please try again.'
-      );
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: error.response?.data?.message || 'Something went wrong. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -145,6 +195,9 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
         end={{ x: 1, y: 1 }}
         style={styles.container}
       >
+        {/* Custom Alert */}
+        <AlertComponent />
+
         <StarField starCount={150} />
         <View style={styles.centerContent}>
           <BrainPulse size={100} pulseSpeed={1500} />
@@ -165,6 +218,9 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
+      {/* Custom Alert */}
+      <AlertComponent />
+
       {/* Starfield background */}
       <StarField starCount={150} />
 
@@ -203,25 +259,43 @@ export const ResetPasswordScreen = ({ route, navigation }) => {
 
           {/* Form section */}
           <View style={styles.formContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="New Password"
-              placeholderTextColor={theme.colors.textMuted}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="New Password"
+                placeholderTextColor={theme.colors.textMuted}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showNewPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowNewPassword(!showNewPassword)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.eyeIcon}>{showNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              </TouchableOpacity>
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm Password"
-              placeholderTextColor={theme.colors.textMuted}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Confirm Password"
+                placeholderTextColor={theme.colors.textMuted}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.eyeIcon}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.hint}>
               Password must be at least 6 characters long
@@ -323,6 +397,33 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: theme.spacing.md,
+  },
+  passwordInput: {
+    backgroundColor: 'rgba(26, 20, 72, 0.6)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md + 2,
+    paddingRight: 50,
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 50,
+  },
+  eyeIcon: {
+    fontSize: 20,
+    opacity: 0.7,
   },
   hint: {
     fontSize: theme.fonts.sizes.xs,

@@ -7,7 +7,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Animated,
   Easing,
 } from 'react-native';
@@ -17,11 +16,14 @@ import { theme } from '../utils/theme';
 import { authAPI } from '../services/api';
 import BrainPulse from '../components/BrainPulse';
 import StarField from '../components/StarField';
+import { useAlert } from '../components/CustomAlert';
 
 export const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+
+  const { showAlert, AlertComponent } = useAlert();
 
   // Animations
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -46,14 +48,22 @@ export const ForgotPasswordScreen = ({ navigation }) => {
 
   const handleSubmit = async () => {
     if (!email) {
-      Alert.alert('Error', 'Please enter your email address');
+      showAlert({
+        type: 'error',
+        title: 'Email Required',
+        message: 'Please enter your email address',
+      });
       return;
     }
 
     // Simple email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      showAlert({
+        type: 'error',
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address',
+      });
       return;
     }
 
@@ -64,27 +74,39 @@ export const ForgotPasswordScreen = ({ navigation }) => {
 
       if (result.success) {
         setEmailSent(true);
-        Alert.alert(
-          'Email Sent',
-          'If an account exists with this email, you will receive password reset instructions.',
-          [
+        showAlert({
+          type: 'success',
+          title: 'Email Sent!',
+          message: 'If an account exists with this email, you will receive password reset instructions. Please check your inbox.',
+          buttons: [
             {
-              text: 'OK',
+              text: 'Back to Login',
               onPress: () => navigation.navigate('Auth'),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', result.message || 'Failed to send reset email');
+        showAlert({
+          type: 'error',
+          title: 'Failed to Send',
+          message: result.message || 'Failed to send reset email. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Forgot password error:', error);
-      Alert.alert(
-        'Success',
-        'If an account exists with this email, you will receive password reset instructions.'
-      );
       // For security reasons, we show success even on error to prevent email enumeration
       setEmailSent(true);
+      showAlert({
+        type: 'success',
+        title: 'Request Received',
+        message: 'If an account exists with this email, you will receive password reset instructions. Please check your inbox.',
+        buttons: [
+          {
+            text: 'Back to Login',
+            onPress: () => navigation.navigate('Auth'),
+          },
+        ],
+      });
     } finally {
       setLoading(false);
     }
@@ -102,6 +124,9 @@ export const ForgotPasswordScreen = ({ navigation }) => {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
+      {/* Custom Alert */}
+      <AlertComponent />
+
       {/* Starfield background */}
       <StarField starCount={150} />
 

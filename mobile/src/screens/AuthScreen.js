@@ -7,7 +7,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Animated,
   Easing,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
 import BrainPulse from '../components/BrainPulse';
 import StarField from '../components/StarField';
+import { useAlert } from '../components/CustomAlert';
 
 export const AuthScreen = ({ navigation }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -24,8 +24,10 @@ export const AuthScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { login, register } = useAuth();
+  const { showAlert, AlertComponent } = useAlert();
 
   // Animations
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -49,8 +51,53 @@ export const AuthScreen = ({ navigation }) => {
   }, []);
 
   const handleSubmit = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+    // Validate email
+    if (!email) {
+      showAlert({
+        type: 'error',
+        title: 'Email Required',
+        message: 'Please enter your email address',
+      });
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showAlert({
+        type: 'error',
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address',
+      });
+      return;
+    }
+
+    // Validate password
+    if (!password) {
+      showAlert({
+        type: 'error',
+        title: 'Password Required',
+        message: 'Please enter your password',
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      showAlert({
+        type: 'error',
+        title: 'Password Too Short',
+        message: 'Password must be at least 6 characters long',
+      });
+      return;
+    }
+
+    // Validate name for signup
+    if (!isLogin && !name) {
+      showAlert({
+        type: 'error',
+        title: 'Name Required',
+        message: 'Please enter your full name',
+      });
       return;
     }
 
@@ -61,21 +108,65 @@ export const AuthScreen = ({ navigation }) => {
       if (isLogin) {
         result = await login(email, password);
       } else {
-        if (!name) {
-          Alert.alert('Error', 'Please enter your name');
-          setLoading(false);
-          return;
-        }
         result = await register(email, password, name);
       }
 
       if (result.success) {
-        navigation.replace('MoodCheck');
+        showAlert({
+          type: 'success',
+          title: isLogin ? 'Welcome Back!' : 'Account Created!',
+          message: isLogin
+            ? 'You have successfully logged in'
+            : 'Your account has been created successfully',
+          buttons: [
+            {
+              text: 'Continue',
+              onPress: () => navigation.replace('MoodCheck'),
+            },
+          ],
+        });
       } else {
-        Alert.alert('Error', result.message || 'Authentication failed');
+        // Handle specific error messages
+        let errorTitle = 'Authentication Failed';
+        let errorMessage = result.message || 'Please check your credentials and try again';
+
+        if (result.message?.toLowerCase().includes('email')) {
+          if (result.message?.toLowerCase().includes('already exists')) {
+            errorTitle = 'Email Already Registered';
+            errorMessage = 'An account with this email already exists. Please login instead.';
+          } else if (result.message?.toLowerCase().includes('not found') ||
+                     result.message?.toLowerCase().includes('invalid')) {
+            errorTitle = 'Email Not Found';
+            errorMessage = 'No account found with this email address. Please sign up first.';
+          }
+        } else if (result.message?.toLowerCase().includes('password')) {
+          errorTitle = 'Incorrect Password';
+          errorMessage = 'The password you entered is incorrect. Please try again.';
+        }
+
+        showAlert({
+          type: 'error',
+          title: errorTitle,
+          message: errorMessage,
+        });
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      console.error('Auth error:', error);
+
+      // Handle network errors
+      if (error.message?.toLowerCase().includes('network')) {
+        showAlert({
+          type: 'error',
+          title: 'Connection Error',
+          message: 'Unable to connect to server. Please check your internet connection.',
+        });
+      } else {
+        showAlert({
+          type: 'error',
+          title: 'Something Went Wrong',
+          message: 'An unexpected error occurred. Please try again later.',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -93,6 +184,9 @@ export const AuthScreen = ({ navigation }) => {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
+      {/* Custom Alert */}
+      <AlertComponent />
+
       {/* Starfield background */}
       <StarField starCount={150} />
 
@@ -155,15 +249,24 @@ export const AuthScreen = ({ navigation }) => {
               autoCapitalize="none"
             />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={theme.colors.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Password"
+                placeholderTextColor={theme.colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+              </TouchableOpacity>
+            </View>
 
             {isLogin && (
               <TouchableOpacity
@@ -274,6 +377,33 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: theme.spacing.md,
+  },
+  passwordInput: {
+    backgroundColor: 'rgba(26, 20, 72, 0.6)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md + 2,
+    paddingRight: 50,
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 50,
+  },
+  eyeIcon: {
+    fontSize: 20,
+    opacity: 0.7,
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
