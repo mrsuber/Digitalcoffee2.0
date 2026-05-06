@@ -151,7 +151,7 @@ export const AuthScreen = ({ navigation }) => {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={[theme.colors.alpha, theme.colors.theta]}
+                colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.submitGradient}
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   submitGradient: {
     paddingVertical: theme.spacing.md + 2,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: 30,
     alignItems: 'center',
   },
   submitText: {

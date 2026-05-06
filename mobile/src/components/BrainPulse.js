@@ -1,9 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
 import { theme } from '../utils/theme';
-import BrainLogoSvg from './BrainLogoSvg';
 
-export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 }) => {
+// TODO: Replace with actual brain logo image
+// For now, we'll use a placeholder that shows we need the image
+const BRAIN_LOGO_PLACEHOLDER = 'https://via.placeholder.com/200x200/0a0e27/0d9488?text=Brain+Logo';
+
+export const BrainPulse = ({ size = 200, pulseSpeed = 2000, logoSource }) => {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0.9)).current;
   const rotate = useRef(new Animated.Value(0)).current;
@@ -45,34 +48,17 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
       ])
     );
 
-    // Very slow rotation for subtle effect
-    const rotateAnim = Animated.loop(
-      Animated.timing(rotate, {
-        toValue: 1,
-        duration: 60000, // 60 seconds for full rotation
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-
     scaleAnim.start();
     opacityAnim.start();
-    rotateAnim.start();
 
     return () => {
       scaleAnim.stop();
       opacityAnim.stop();
-      rotateAnim.stop();
     };
-  }, [pulseSpeed, scale, opacity, rotate]);
-
-  const spin = rotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  }, [pulseSpeed, scale, opacity]);
 
   const animatedStyle = {
-    transform: [{ scale }, { rotate: spin }],
+    transform: [{ scale }],
     opacity,
   };
 
@@ -83,12 +69,12 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
         style={[
           styles.glowOuter,
           {
-            width: size * 1.3,
-            height: size * 1.3,
-            borderRadius: (size * 1.3) / 2,
+            width: size * 1.4,
+            height: size * 1.4,
+            borderRadius: (size * 1.4) / 2,
             opacity: opacity.interpolate({
               inputRange: [0.7, 1],
-              outputRange: [0.1, 0.3],
+              outputRange: [0.15, 0.35],
             }),
           },
         ]}
@@ -99,12 +85,12 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
         style={[
           styles.glowMiddle,
           {
-            width: size * 1.15,
-            height: size * 1.15,
-            borderRadius: (size * 1.15) / 2,
+            width: size * 1.2,
+            height: size * 1.2,
+            borderRadius: (size * 1.2) / 2,
             opacity: opacity.interpolate({
               inputRange: [0.7, 1],
-              outputRange: [0.2, 0.4],
+              outputRange: [0.25, 0.45],
             }),
           },
         ]}
@@ -112,11 +98,15 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
 
       {/* Main brain logo */}
       <Animated.View style={[styles.logoContainer, animatedStyle]}>
-        <BrainLogoSvg
-          size={size}
-          color1={theme.colors.alpha}
-          color2={theme.colors.theta}
-          color3={theme.colors.gamma}
+        <Image
+          source={
+            logoSource || require('../../assets/brain-logo.png') // Will use local file when available
+          }
+          style={{
+            width: size,
+            height: size,
+          }}
+          resizeMode="contain"
         />
       </Animated.View>
 
@@ -126,9 +116,9 @@ export const BrainPulse = ({ size = 200, pulseSpeed = 2000, glowIntensity = 1 })
           styles.glowInner,
           animatedStyle,
           {
-            width: size * 0.6,
-            height: size * 0.6,
-            borderRadius: (size * 0.6) / 2,
+            width: size * 0.7,
+            height: size * 0.7,
+            borderRadius: (size * 0.7) / 2,
           },
         ]}
       />
@@ -153,7 +143,7 @@ const styles = StyleSheet.create({
   glowInner: {
     position: 'absolute',
     backgroundColor: theme.colors.beta,
-    opacity: 0.15,
+    opacity: 0.2,
   },
   logoContainer: {
     justifyContent: 'center',
