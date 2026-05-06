@@ -48,6 +48,15 @@ export const authAPI = {
 
   login: (email, password) =>
     api.post('/auth/login', { email, password }),
+
+  forgotPassword: (email) =>
+    api.post('/auth/forgot-password', { email }),
+
+  resetPassword: (token, newPassword) =>
+    api.post('/auth/reset-password', { token, newPassword }),
+
+  verifyResetToken: (token) =>
+    api.get(`/auth/verify-reset-token/${token}`),
 };
 
 // Mood endpoints
