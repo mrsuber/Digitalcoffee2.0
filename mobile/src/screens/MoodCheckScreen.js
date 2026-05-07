@@ -168,16 +168,21 @@ export const MoodCheckScreen = ({ navigation }) => {
           ]}
           onPress={handleNext}
           disabled={currentStep === 1 && !selectedMood}
+          activeOpacity={0.8}
         >
+          {/* Gradient border layer */}
           <LinearGradient
-            colors={[theme.colors.alpha, theme.colors.theta]}
+            colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.nextButtonGradient}
+            style={styles.nextButtonGradientBorder}
           >
-            <Text style={styles.nextButtonText}>
-              {currentStep === 3 ? 'Continue' : 'Next'}
-            </Text>
+            {/* Inner transparent background */}
+            <View style={styles.nextButtonInner}>
+              <Text style={styles.nextButtonText}>
+                {currentStep === 3 ? 'CONTINUE' : 'NEXT'}
+              </Text>
+            </View>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -319,15 +324,22 @@ const styles = StyleSheet.create({
   nextButtonDisabled: {
     opacity: 0.5,
   },
-  nextButtonGradient: {
-    paddingVertical: theme.spacing.md,
+  nextButtonGradientBorder: {
     borderRadius: theme.borderRadius.lg,
+    padding: 2, // Border width
+  },
+  nextButtonInner: {
+    backgroundColor: theme.colors.background,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg - 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButtonText: {
     fontSize: theme.fonts.sizes.lg,
     color: theme.colors.text,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });
 
