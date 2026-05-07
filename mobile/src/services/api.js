@@ -17,9 +17,9 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const accessToken = await AsyncStorage.getItem('accessToken');
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
   },
@@ -28,15 +28,58 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling and token refresh
 api.interceptors.response.use(
   (response) => response.data,
   async (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid - clear auth and redirect to login
-      await AsyncStorage.removeItem('authToken');
+    const originalRequest = error.config;
+
+    // If access token expired, try to refresh it
+    if (error.response?.status === 403 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = await AsyncStorage.getItem('refreshToken');
+
+        if (!refreshToken) {
+          // No refresh token, logout user
+          await AsyncStorage.removeItem('accessToken');
+          await AsyncStorage.removeItem('refreshToken');
+          await AsyncStorage.removeItem('user');
+          return Promise.reject(error);
+        }
+
+        // Try to refresh the access token
+        const response = await axios.post(`${API_URL}/auth/refresh`, {
+          refreshToken
+        });
+
+        if (response.data.success) {
+          const { accessToken } = response.data.data;
+
+          // Save new access token
+          await AsyncStorage.setItem('accessToken', accessToken);
+
+          // Retry original request with new token
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return axios(originalRequest);
+        }
+      } catch (refreshError) {
+        // Refresh failed, clear auth and logout
+        await AsyncStorage.removeItem('accessToken');
+        await AsyncStorage.removeItem('refreshToken');
+        await AsyncStorage.removeItem('user');
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // For other 401/403 errors or if refresh failed
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      await AsyncStorage.removeItem('accessToken');
+      await AsyncStorage.removeItem('refreshToken');
       await AsyncStorage.removeItem('user');
     }
+
     return Promise.reject(error);
   }
 );
@@ -48,6 +91,12 @@ export const authAPI = {
 
   login: (email, password) =>
     api.post('/auth/login', { email, password }),
+
+  logout: (refreshToken) =>
+    api.post('/auth/logout', { refreshToken }),
+
+  refreshToken: (refreshToken) =>
+    api.post('/auth/refresh', { refreshToken }),
 
   forgotPassword: (email) =>
     api.post('/auth/forgot-password', { email }),

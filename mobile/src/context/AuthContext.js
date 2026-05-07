@@ -16,10 +16,11 @@ export const AuthProvider = ({ children }) => {
 
   const loadUser = async () => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
       const userData = await AsyncStorage.getItem('user');
 
-      if (token && userData) {
+      if (accessToken && refreshToken && userData) {
         setUser(JSON.parse(userData));
         setIsAuthenticated(true);
       }
@@ -35,9 +36,10 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login(email, password);
 
       if (response.success) {
-        const { user: userData, token } = response.data;
+        const { user: userData, accessToken, refreshToken } = response.data;
 
-        await AsyncStorage.setItem('authToken', token);
+        await AsyncStorage.setItem('accessToken', accessToken);
+        await AsyncStorage.setItem('refreshToken', refreshToken);
         await AsyncStorage.setItem('user', JSON.stringify(userData));
 
         setUser(userData);
@@ -61,9 +63,10 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.register(email, password, name);
 
       if (response.success) {
-        const { user: userData, token } = response.data;
+        const { user: userData, accessToken, refreshToken } = response.data;
 
-        await AsyncStorage.setItem('authToken', token);
+        await AsyncStorage.setItem('accessToken', accessToken);
+        await AsyncStorage.setItem('refreshToken', refreshToken);
         await AsyncStorage.setItem('user', JSON.stringify(userData));
 
         setUser(userData);
@@ -84,7 +87,22 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem('authToken');
+      // Get refresh token before clearing storage
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+
+      // Call logout API to revoke refresh token
+      if (refreshToken) {
+        try {
+          await authAPI.logout(refreshToken);
+        } catch (error) {
+          console.error('Logout API error:', error);
+          // Continue with local logout even if API call fails
+        }
+      }
+
+      // Clear local storage
+      await AsyncStorage.removeItem('accessToken');
+      await AsyncStorage.removeItem('refreshToken');
       await AsyncStorage.removeItem('user');
 
       setUser(null);
