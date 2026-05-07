@@ -25,18 +25,26 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
 
+    console.log('🔍 CORS Check:', { origin, allowedOrigins });
+
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('✅ CORS: Allowing request with no origin');
+      return callback(null, true);
+    }
 
     // If ALLOWED_ORIGINS is *, allow all origins
     if (allowedOrigins.includes('*')) {
+      console.log('✅ CORS: Allowing all origins (wildcard)');
       return callback(null, true);
     }
 
     // Check if the origin is in the allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('✅ CORS: Origin allowed');
       callback(null, true);
     } else {
+      console.log('❌ CORS: Origin not allowed');
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -46,6 +54,18 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Debug logging middleware
+app.use((req, res, next) => {
+  console.log('📥 Incoming Request:', {
+    method: req.method,
+    path: req.path,
+    origin: req.headers.origin,
+    contentType: req.headers['content-type'],
+    authorization: req.headers.authorization ? 'Present' : 'None'
+  });
+  next();
+});
 
 // Health check
 app.get('/health', (req, res) => {
