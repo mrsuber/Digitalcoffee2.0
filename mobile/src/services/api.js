@@ -17,6 +17,12 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
+    console.log('🚀 Making API request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`
+    });
     const accessToken = await AsyncStorage.getItem('accessToken');
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
@@ -24,24 +30,44 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
 // Response interceptor for error handling and token refresh
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    console.log('✅ API response received:', {
+      status: response.status,
+      url: response.config?.url
+    });
+    return response.data;
+  },
   async (error) => {
+    console.error('❌ API error response:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      message: error.message,
+      data: error.response?.data
+    });
+
     const originalRequest = error.config;
 
-    // If access token expired, try to refresh it
-    if (error.response?.status === 403 && !originalRequest._retry) {
+    // Skip token refresh for auth endpoints
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/register') ||
+                          originalRequest?.url?.includes('/auth/login');
+
+    // If access token expired, try to refresh it (but not for auth endpoints)
+    if (error.response?.status === 403 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = await AsyncStorage.getItem('refreshToken');
 
         if (!refreshToken) {
+          console.log('⚠️ No refresh token available, clearing storage');
           // No refresh token, logout user
           await AsyncStorage.removeItem('accessToken');
           await AsyncStorage.removeItem('refreshToken');
@@ -49,6 +75,7 @@ api.interceptors.response.use(
           return Promise.reject(error);
         }
 
+        console.log('🔄 Attempting to refresh access token');
         // Try to refresh the access token
         const response = await axios.post(`${API_URL}/auth/refresh`, {
           refreshToken
@@ -56,6 +83,7 @@ api.interceptors.response.use(
 
         if (response.data.success) {
           const { accessToken } = response.data.data;
+          console.log('✅ Token refreshed successfully');
 
           // Save new access token
           await AsyncStorage.setItem('accessToken', accessToken);
@@ -65,6 +93,7 @@ api.interceptors.response.use(
           return axios(originalRequest);
         }
       } catch (refreshError) {
+        console.error('❌ Token refresh failed:', refreshError);
         // Refresh failed, clear auth and logout
         await AsyncStorage.removeItem('accessToken');
         await AsyncStorage.removeItem('refreshToken');
@@ -73,8 +102,9 @@ api.interceptors.response.use(
       }
     }
 
-    // For other 401/403 errors or if refresh failed
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    // For other 401/403 errors or if refresh failed (but not for auth endpoints)
+    if ((error.response?.status === 401 || error.response?.status === 403) && !isAuthEndpoint) {
+      console.log('⚠️ Clearing auth due to 401/403 error');
       await AsyncStorage.removeItem('accessToken');
       await AsyncStorage.removeItem('refreshToken');
       await AsyncStorage.removeItem('user');
