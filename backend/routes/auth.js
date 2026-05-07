@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { generateToken } = require('../middleware/auth');
+const { generateAccessToken, generateRefreshToken } = require('../middleware/auth');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 
 const router = express.Router();
@@ -57,8 +57,18 @@ router.post('/register',
         [user.id, JSON.stringify({})]
       );
 
-      // Generate token
-      const token = generateToken(user.id);
+      // Generate access and refresh tokens
+      const accessToken = generateAccessToken(user.id);
+      const refreshToken = generateRefreshToken();
+
+      // Store refresh token in database (expires in 30 days)
+      const refreshTokenExpiry = new Date();
+      refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 30);
+
+      await db.query(
+        'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+        [user.id, refreshToken, refreshTokenExpiry]
+      );
 
       res.status(201).json({
         success: true,
@@ -70,7 +80,8 @@ router.post('/register',
             name: user.name,
             created_at: user.created_at
           },
-          token
+          accessToken,
+          refreshToken
         }
       });
     } catch (error) {
@@ -126,8 +137,18 @@ router.post('/login',
         });
       }
 
-      // Generate token
-      const token = generateToken(user.id);
+      // Generate access and refresh tokens
+      const accessToken = generateAccessToken(user.id);
+      const refreshToken = generateRefreshToken();
+
+      // Store refresh token in database (expires in 30 days)
+      const refreshTokenExpiry = new Date();
+      refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 30);
+
+      await db.query(
+        'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+        [user.id, refreshToken, refreshTokenExpiry]
+      );
 
       res.json({
         success: true,
@@ -138,7 +159,8 @@ router.post('/login',
             email: user.email,
             name: user.name
           },
-          token
+          accessToken,
+          refreshToken
         }
       });
     } catch (error) {
@@ -318,6 +340,103 @@ router.get('/verify-reset-token/:token',
       res.status(500).json({
         success: false,
         message: 'Error verifying token'
+      });
+    }
+  }
+);
+
+// Refresh access token using refresh token
+router.post('/refresh',
+  [
+    body('refreshToken').notEmpty().trim()
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { refreshToken } = req.body;
+
+    try {
+      // Find valid refresh token
+      const tokenResult = await db.query(
+        `SELECT rt.id, rt.user_id, rt.expires_at, u.email, u.name
+         FROM refresh_tokens rt
+         JOIN users u ON u.id = rt.user_id
+         WHERE rt.token = $1 AND rt.revoked = false AND rt.expires_at > NOW()`,
+        [refreshToken]
+      );
+
+      if (tokenResult.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid or expired refresh token'
+        });
+      }
+
+      const tokenData = tokenResult.rows[0];
+
+      // Generate new access token
+      const accessToken = generateAccessToken(tokenData.user_id);
+
+      res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        data: {
+          accessToken,
+          user: {
+            id: tokenData.user_id,
+            email: tokenData.email,
+            name: tokenData.name
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error refreshing token'
+      });
+    }
+  }
+);
+
+// Logout - Revoke refresh token
+router.post('/logout',
+  [
+    body('refreshToken').notEmpty().trim()
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { refreshToken } = req.body;
+
+    try {
+      // Revoke refresh token
+      await db.query(
+        'UPDATE refresh_tokens SET revoked = true, revoked_at = NOW() WHERE token = $1',
+        [refreshToken]
+      );
+
+      res.json({
+        success: true,
+        message: 'Logged out successfully'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error logging out'
       });
     }
   }

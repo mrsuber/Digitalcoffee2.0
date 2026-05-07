@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -23,15 +24,28 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-const generateToken = (userId) => {
+// Generate short-lived access token (15 minutes)
+const generateAccessToken = (userId) => {
   return jwt.sign(
     { userId },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: '15m' }
   );
+};
+
+// Generate long-lived refresh token (30 days)
+const generateRefreshToken = () => {
+  return crypto.randomBytes(64).toString('hex');
+};
+
+// Legacy function for backward compatibility
+const generateToken = (userId) => {
+  return generateAccessToken(userId);
 };
 
 module.exports = {
   authenticateToken,
   generateToken,
+  generateAccessToken,
+  generateRefreshToken,
 };
