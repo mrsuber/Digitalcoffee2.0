@@ -58,12 +58,13 @@ export const IntroScreen = ({ navigation }) => {
       ]).start();
     }, 400);
 
+    // TODO: Re-enable auto-transition after design is finalized
     // Navigate to mood check after 3 seconds
-    const timer = setTimeout(() => {
-      navigation.replace('MoodCheck');
-    }, 3000);
+    // const timer = setTimeout(() => {
+    //   navigation.replace('MoodCheck');
+    // }, 3000);
 
-    return () => clearTimeout(timer);
+    // return () => clearTimeout(timer);
   }, [navigation]);
 
   return (
