@@ -121,7 +121,7 @@ export const AuthScreen = ({ navigation }) => {
           buttons: [
             {
               text: 'Continue',
-              onPress: () => navigation.replace('MoodCheck'),
+              onPress: () => navigation.replace('Intro'),
             },
           ],
         });
