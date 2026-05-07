@@ -30,7 +30,7 @@ const corsOptions = {
 
     // If ALLOWED_ORIGINS is *, allow all origins
     if (allowedOrigins.includes('*')) {
-      return callback(null, origin);
+      return callback(null, true);
     }
 
     // Check if the origin is in the allowed list
