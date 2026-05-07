@@ -23,10 +23,18 @@ export default function Layout() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {/* Sidebar */}
-      <div style={{ width: '250px', background: '#1f2937', color: 'white', padding: '1.5rem' }}>
+      <div style={{
+        width: '250px',
+        background: '#1f2937',
+        color: 'white',
+        padding: '1.5rem',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative'
+      }}>
         <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '2rem' }}>Digital Coffee</h2>
 
-        <nav>
+        <nav style={{ flex: 1 }}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -54,7 +62,7 @@ export default function Layout() {
           })}
         </nav>
 
-        <div style={{ position: 'absolute', bottom: '1.5rem', left: '1.5rem', right: '1.5rem' }}>
+        <div style={{ marginTop: 'auto' }}>
           <div style={{ padding: '1rem', background: '#374151', borderRadius: '0.5rem', marginBottom: '1rem' }}>
             <p style={{ fontSize: '0.875rem', fontWeight: '600' }}>{admin?.name}</p>
             <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{admin?.email}</p>
@@ -71,7 +79,8 @@ export default function Layout() {
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
-              fontWeight: '600'
+              fontWeight: '600',
+              cursor: 'pointer'
             }}
           >
             <LogOut size={20} style={{ marginRight: '0.75rem' }} />
