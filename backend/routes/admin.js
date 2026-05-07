@@ -62,13 +62,18 @@ router.post('/login',
     const { email, password } = req.body;
 
     try {
+      console.log('🔐 Admin login attempt:', { email, passwordLength: password?.length });
+
       // Get admin user by username or email
       const result = await db.query(
         'SELECT id, email, username, password_hash, name, is_admin FROM users WHERE (email = $1 OR username = $1) AND is_admin = true',
         [email]
       );
 
+      console.log('👤 User query result:', { found: result.rows.length > 0, email });
+
       if (result.rows.length === 0) {
+        console.log('❌ No admin user found with email/username:', email);
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials or not an admin'
@@ -76,11 +81,14 @@ router.post('/login',
       }
 
       const admin = result.rows[0];
+      console.log('✅ Found admin:', { id: admin.id, email: admin.email, username: admin.username });
 
       // Verify password
       const validPassword = await bcrypt.compare(password, admin.password_hash);
+      console.log('🔑 Password verification:', validPassword);
 
       if (!validPassword) {
+        console.log('❌ Password mismatch for user:', email);
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
