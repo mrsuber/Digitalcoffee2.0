@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     padding: 2, // Border width
   },
   nextButtonInner: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'rgba(0, 6, 20, 0.6)', // Semi-transparent dark background
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.lg - 1,
     alignItems: 'center',
