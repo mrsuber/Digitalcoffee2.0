@@ -2,9 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Change this to your VPS IP or domain when deploying
-const API_URL = __DEV__
-  ? 'http://localhost:5000/api'  // Development
-  : 'http://76.13.41.99:5000/api';  // Production - Direct VPS IP (bypasses Cloudflare)
+// Using direct VPS IP to bypass Cloudflare 403 errors
+const API_URL = 'http://76.13.41.99:5000/api';
 
 const api = axios.create({
   baseURL: API_URL,
