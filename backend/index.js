@@ -11,6 +11,7 @@ const coursesRoutes = require('./routes/courses');
 const audioRoutes = require('./routes/audio');
 const progressRoutes = require('./routes/progress');
 const journalRoutes = require('./routes/journal');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -84,6 +85,7 @@ app.use('/api/courses', coursesRoutes);
 app.use('/api/audio', audioRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/journal', journalRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
