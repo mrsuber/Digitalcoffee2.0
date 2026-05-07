@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ export default function Login() {
     setError('');
     setLoading(true);
 
-    const result = await login(email, password);
+    const result = await login(username, password);
 
     if (result.success) {
       navigate('/');
@@ -40,13 +40,13 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label>Username or Email</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder="admin@digitalcoffee.cafe"
+              placeholder="admin or admin@digitalcoffee.cafe"
             />
           </div>
 
@@ -67,7 +67,7 @@ export default function Login() {
         </form>
 
         <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#6b7280', textAlign: 'center' }}>
-          Default credentials: admin@digitalcoffee.cafe / admin123
+          Default: Username: <strong>admin</strong> / Password: <strong>admin123</strong>
         </p>
       </div>
     </div>

@@ -47,7 +47,7 @@ const adminAuth = async (req, res, next) => {
 // Admin login
 router.post('/login',
   [
-    body('email').isEmail().normalizeEmail(),
+    body('email').trim().notEmpty().withMessage('Username or email is required'),
     body('password').exists()
   ],
   async (req, res) => {
@@ -62,9 +62,9 @@ router.post('/login',
     const { email, password } = req.body;
 
     try {
-      // Get admin user
+      // Get admin user by username or email
       const result = await db.query(
-        'SELECT id, email, password_hash, name, is_admin FROM users WHERE email = $1 AND is_admin = true',
+        'SELECT id, email, username, password_hash, name, is_admin FROM users WHERE (email = $1 OR username = $1) AND is_admin = true',
         [email]
       );
 
@@ -97,6 +97,7 @@ router.post('/login',
           admin: {
             id: admin.id,
             email: admin.email,
+            username: admin.username,
             name: admin.name
           },
           accessToken
