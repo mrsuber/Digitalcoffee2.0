@@ -43,9 +43,19 @@ const generateToken = (userId) => {
   return generateAccessToken(userId);
 };
 
+// Verify token function (synchronous)
+const verifyToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    throw new Error('Invalid or expired token');
+  }
+};
+
 module.exports = {
   authenticateToken,
   generateToken,
   generateAccessToken,
   generateRefreshToken,
+  verifyToken,
 };

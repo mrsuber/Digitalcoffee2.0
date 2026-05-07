@@ -28,10 +28,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    // Don't redirect to login if this is the login request itself
+    const isLoginRequest = error.config?.url?.includes('/admin/login');
+
+    if ((error.response?.status === 401 || error.response?.status === 403) && !isLoginRequest) {
+      console.error('Authentication error, redirecting to login...');
       localStorage.removeItem('adminToken');
       localStorage.removeItem('admin');
-      window.location.href = '/login';
+      window.location.href = '/admin/login';
     }
     return Promise.reject(error);
   }
