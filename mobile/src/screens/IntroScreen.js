@@ -7,6 +7,7 @@ import {
   Easing,
   Image,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -22,6 +23,11 @@ export const IntroScreen = ({ navigation }) => {
   const logoScale = useRef(new Animated.Value(0.8)).current;
   const textFadeIn = useRef(new Animated.Value(0)).current;
   const imageOpacity = useRef(new Animated.Value(0)).current;
+  const arrowFadeIn = useRef(new Animated.Value(0)).current;
+
+  const handleNext = () => {
+    navigation.replace('MoodCheck');
+  };
 
   useEffect(() => {
     // Logo animation
@@ -55,6 +61,12 @@ export const IntroScreen = ({ navigation }) => {
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
+        Animated.timing(arrowFadeIn, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
       ]).start();
     }, 400);
 
@@ -81,6 +93,24 @@ export const IntroScreen = ({ navigation }) => {
         ]}
         style={styles.gradientOverlay}
       />
+
+      {/* Next Arrow Button */}
+      <Animated.View
+        style={[
+          styles.arrowContainer,
+          {
+            opacity: arrowFadeIn,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.arrowButton}
+          onPress={handleNext}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.arrowIcon}>→</Text>
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Meditating figure background */}
       <Animated.View

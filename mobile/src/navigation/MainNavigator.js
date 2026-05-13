@@ -2,9 +2,12 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Text } from 'react-native';
 import { theme } from '../utils/theme';
+import FocusNavigator from './FocusNavigator';
+import LibraryNavigator from './LibraryNavigator';
+import ProfileNavigator from './ProfileNavigator';
 
 // Import screens with error handling
-let DashboardScreen, CoursesScreen, ProgressScreen, ProfileScreen;
+let DashboardScreen, ProgressScreen;
 
 try {
   DashboardScreen = require('../screens/DashboardScreen').default;
@@ -19,36 +22,12 @@ try {
 }
 
 try {
-  CoursesScreen = require('../screens/CoursesScreen').default;
-} catch (e) {
-  console.error('Error loading CoursesScreen:', e);
-  CoursesScreen = () => (
-    <View style={errorStyles.container}>
-      <Text style={errorStyles.text}>CoursesScreen Error</Text>
-      <Text style={errorStyles.detail}>{e.message}</Text>
-    </View>
-  );
-}
-
-try {
   ProgressScreen = require('../screens/ProgressScreen').default;
 } catch (e) {
   console.error('Error loading ProgressScreen:', e);
   ProgressScreen = () => (
     <View style={errorStyles.container}>
       <Text style={errorStyles.text}>ProgressScreen Error</Text>
-      <Text style={errorStyles.detail}>{e.message}</Text>
-    </View>
-  );
-}
-
-try {
-  ProfileScreen = require('../screens/ProfileScreen').default;
-} catch (e) {
-  console.error('Error loading ProfileScreen:', e);
-  ProfileScreen = () => (
-    <View style={errorStyles.container}>
-      <Text style={errorStyles.text}>ProfileScreen Error</Text>
       <Text style={errorStyles.detail}>{e.message}</Text>
     </View>
   );
@@ -99,21 +78,8 @@ const MainNavigator = () => {
         }}
       />
       <Tab.Screen
-        name="Plan"
-        component={CoursesScreen}
-        options={{
-          tabBarLabel: 'Plan',
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon
-              focused={focused}
-              icon={<PlanIcon color={color} />}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
         name="Focus"
-        component={ProgressScreen}
+        component={FocusNavigator}
         options={{
           tabBarLabel: 'Focus',
           tabBarIcon: ({ focused, color }) => (
@@ -125,8 +91,34 @@ const MainNavigator = () => {
         }}
       />
       <Tab.Screen
+        name="Progress"
+        component={ProgressScreen}
+        options={{
+          tabBarLabel: 'Progress',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon
+              focused={focused}
+              icon={<ProgressIcon color={color} />}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Library"
+        component={LibraryNavigator}
+        options={{
+          tabBarLabel: 'Library',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon
+              focused={focused}
+              icon={<LibraryIcon color={color} />}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileNavigator}
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ focused, color }) => (
@@ -148,15 +140,21 @@ const HomeIcon = ({ color }) => (
   </View>
 );
 
-const PlanIcon = ({ color }) => (
+const FocusIcon = ({ color }) => (
+  <View style={[styles.icon, { backgroundColor: color + '30' }]}>
+    <View style={[styles.iconDot, { backgroundColor: color }]} />
+  </View>
+);
+
+const ProgressIcon = ({ color }) => (
   <View style={[styles.icon, { backgroundColor: color + '30' }]}>
     <View style={[styles.iconSquare, { backgroundColor: color }]} />
   </View>
 );
 
-const FocusIcon = ({ color }) => (
+const LibraryIcon = ({ color }) => (
   <View style={[styles.icon, { backgroundColor: color + '30' }]}>
-    <View style={[styles.iconDot, { backgroundColor: color }]} />
+    <View style={[styles.iconStack, { borderColor: color }]} />
   </View>
 );
 
@@ -229,6 +227,12 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
+    borderWidth: 2,
+  },
+  iconStack: {
+    width: 14,
+    height: 14,
+    borderRadius: 2,
     borderWidth: 2,
   },
 });

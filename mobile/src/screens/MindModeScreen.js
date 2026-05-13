@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
@@ -15,24 +16,24 @@ const { width } = Dimensions.get('window');
 const MIND_MODES = [
   {
     id: 'hyper-focus',
-    icon: '🎯',
+    image: require('../../assets/hyper-focus.png'),
     title: 'Hyper-Focus Mode',
-    description: 'Short, intense sessions to help you lock into deep work mode.',
-    color: theme.colors.beta,
+    description: 'Short, intense sessions to lock in.',
+    backgroundColor: '#141c42',
   },
   {
     id: 'calm-down',
-    icon: '🌊',
+    image: require('../../assets/calm.png'),
     title: 'Calm-Down Mode',
-    description: 'Relaxation and breathing exercises to reset your mental state.',
-    color: theme.colors.theta,
+    description: 'Relaxation & breathing to reset your mind.',
+    backgroundColor: '#07212e',
   },
   {
     id: 'infinite-inspiration',
-    icon: '✨',
+    image: require('../../assets/infinite-inspiration.png'),
     title: 'Infinite-Inspiration Mode',
-    description: 'Long-form talks and affirmations to expand your mindset.',
-    color: theme.colors.gamma,
+    description: 'Deep talks & affirmations to expand your mind.',
+    backgroundColor: '#161628',
   },
 ];
 
@@ -64,14 +65,17 @@ export const MindModeScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
           <Text style={styles.stepIndicator}>2/3</Text>
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.title}>Choose your Mind-Mode</Text>
-          <Text style={styles.subtitle}>
-            You can choose 1 or 2 modes to focus on
-          </Text>
+          <Text style={styles.title}>Choose your{'\n'}Mind-Mode</Text>
 
           <View style={styles.modesContainer}>
             {MIND_MODES.map((mode) => (
@@ -79,30 +83,28 @@ export const MindModeScreen = ({ navigation, route }) => {
                 key={mode.id}
                 style={[
                   styles.modeCard,
+                  { backgroundColor: mode.backgroundColor },
                   selectedMode === mode.id && styles.modeCardSelected,
                 ]}
                 onPress={() => setSelectedMode(mode.id)}
+                activeOpacity={0.8}
               >
-                <View style={styles.modeHeader}>
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: mode.color + '20' },
-                    ]}
-                  >
-                    <Text style={styles.modeIcon}>{mode.icon}</Text>
+                <View style={styles.cardContent}>
+                  <Image
+                    source={mode.image}
+                    style={styles.modeImage}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.textContent}>
+                    <Text style={styles.modeTitle}>{mode.title}</Text>
+                    <Text style={styles.modeDescription}>{mode.description}</Text>
                   </View>
-                  {selectedMode === mode.id && (
-                    <View
-                      style={[styles.checkmark, { backgroundColor: mode.color }]}
-                    >
-                      <Text style={styles.checkmarkText}>✓</Text>
-                    </View>
-                  )}
                 </View>
-
-                <Text style={styles.modeTitle}>{mode.title}</Text>
-                <Text style={styles.modeDescription}>{mode.description}</Text>
+                {selectedMode === mode.id && (
+                  <View style={styles.checkmark}>
+                    <Text style={styles.checkmarkText}>✓</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -115,14 +117,17 @@ export const MindModeScreen = ({ navigation, route }) => {
           ]}
           onPress={handleContinue}
           disabled={!selectedMode}
+          activeOpacity={0.8}
         >
           <LinearGradient
-            colors={[theme.colors.alpha, theme.colors.theta]}
+            colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.continueGradient}
+            style={styles.continueGradientBorder}
           >
-            <Text style={styles.continueText}>Continue</Text>
+            <View style={styles.continueInner}>
+              <Text style={styles.continueText}>Next</Text>
+            </View>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -139,8 +144,21 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
   },
   header: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: theme.colors.text,
   },
   stepIndicator: {
     fontSize: theme.fonts.sizes.md,
@@ -152,57 +170,37 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xl,
   },
   title: {
-    fontSize: theme.fonts.sizes.xxl,
+    fontSize: 32,
     color: theme.colors.text,
     fontWeight: 'bold',
-    marginBottom: theme.spacing.sm,
-  },
-  subtitle: {
-    fontSize: theme.fonts.sizes.md,
-    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.xl,
+    lineHeight: 40,
   },
   modesContainer: {
     gap: theme.spacing.md,
   },
   modeCard: {
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: 'transparent',
+    position: 'relative',
+    minHeight: 120,
   },
   modeCardSelected: {
     borderColor: theme.colors.alpha,
-    backgroundColor: 'rgba(13, 148, 136, 0.1)',
   },
-  modeHeader: {
+  cardContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    gap: theme.spacing.md,
   },
-  iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modeImage: {
+    width: 70,
+    height: 70,
   },
-  modeIcon: {
-    fontSize: 24,
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmarkText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: 'bold',
+  textContent: {
+    flex: 1,
   },
   modeTitle: {
     fontSize: theme.fonts.sizes.lg,
@@ -215,22 +213,50 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 20,
   },
+  checkmark: {
+    position: 'absolute',
+    top: theme.spacing.md,
+    right: theme.spacing.md,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.alpha,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: theme.colors.alpha,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  checkmarkText: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   continueButton: {
     marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
   },
   continueButtonDisabled: {
     opacity: 0.5,
   },
-  continueGradient: {
-    paddingVertical: theme.spacing.md,
+  continueGradientBorder: {
     borderRadius: theme.borderRadius.lg,
+    padding: 2,
+  },
+  continueInner: {
+    backgroundColor: 'rgba(0, 6, 20, 0.6)',
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg - 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   continueText: {
     fontSize: theme.fonts.sizes.lg,
     color: theme.colors.text,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });
 

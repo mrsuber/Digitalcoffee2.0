@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,136 +7,97 @@ import {
   TextInput,
   ScrollView,
   Dimensions,
+  Modal,
+  PanResponder,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
 
 const { width } = Dimensions.get('window');
 
 const MOODS = [
   { emoji: '😌', label: 'Clear', value: 'clear' },
+  { emoji: '🧘', label: 'Calm', value: 'calm' },
   { emoji: '😤', label: 'Tired', value: 'tired' },
   { emoji: '😨', label: 'Anxious', value: 'anxious' },
   { emoji: '😴', label: 'Foggy', value: 'foggy' },
-  { emoji: '😬', label: 'Inspired', value: 'inspired' },
 ];
 
 const FOCUS_LEVELS = ['low', 'medium', 'high'];
 
+const DAILY_GOALS = [
+  'Complete a work project',
+  'Study or learn something new',
+  'Exercise or workout',
+  'Meditate or practice mindfulness',
+  'Read a book or article',
+  'Connect with friends or family',
+  'Organize or clean',
+  'Creative work (art, music, writing)',
+  'Self-care and relaxation',
+  'Other',
+];
+
 export const MoodCheckScreen = ({ navigation }) => {
-  const [currentStep, setCurrentStep] = useState(1);
   const [selectedMood, setSelectedMood] = useState(null);
+  const [moodIntensity, setMoodIntensity] = useState(50); // Percentage 0-100
   const [focusLevel, setFocusLevel] = useState('medium');
-  const [dailyGoal, setDailyGoal] = useState('');
-  const [emojiRating, setEmojiRating] = useState(3);
+  const [selectedGoal, setSelectedGoal] = useState('');
+  const [customGoal, setCustomGoal] = useState('');
+  const [showGoalPicker, setShowGoalPicker] = useState(false);
+  const [sliderWidth, setSliderWidth] = useState(width - 80);
 
-  const handleNext = () => {
-    if (currentStep === 1 && !selectedMood) return;
+  // Load skip preference
+  useEffect(() => {
+    checkSkipPreference();
+  }, []);
 
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      // Save mood check-in data and navigate to mind-mode selection
-      const moodData = {
-        mood: selectedMood,
-        focus_level: focusLevel,
-        daily_goal: dailyGoal,
-        emoji_rating: emojiRating,
-      };
-
-      navigation.navigate('MindModeSelection', { moodData });
+  const checkSkipPreference = async () => {
+    try {
+      const skipMoodCheck = await AsyncStorage.getItem('skipMoodCheck');
+      if (skipMoodCheck === 'true') {
+        // User chose to skip mood checks, go directly to mind mode
+        navigation.replace('MindModeSelection', { skipped: true });
+      }
+    } catch (error) {
+      console.error('Error checking skip preference:', error);
     }
   };
 
-  const renderStep1 = () => (
-    <>
-      <Text style={styles.questionText}>How do you feel right now?</Text>
-      <View style={styles.moodContainer}>
-        {MOODS.map((mood) => (
-          <TouchableOpacity
-            key={mood.value}
-            style={[
-              styles.moodButton,
-              selectedMood === mood.value && styles.moodButtonSelected,
-            ]}
-            onPress={() => setSelectedMood(mood.value)}
-          >
-            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-            <Text style={styles.moodLabel}>{mood.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+  const handleSkipForNow = () => {
+    navigation.replace('MindModeSelection', { skipped: true });
+  };
 
-      <View style={styles.emojiSliderContainer}>
-        <Text style={styles.sliderLabel}>Overall feeling (1-5)</Text>
-        <View style={styles.ratingButtons}>
-          {[1, 2, 3, 4, 5].map((rating) => (
-            <TouchableOpacity
-              key={rating}
-              style={[
-                styles.ratingButton,
-                emojiRating === rating && styles.ratingButtonSelected,
-              ]}
-              onPress={() => setEmojiRating(rating)}
-            >
-              <Text
-                style={[
-                  styles.ratingText,
-                  emojiRating === rating && styles.ratingTextSelected,
-                ]}
-              >
-                {rating}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </>
-  );
+  const handleSkipAlways = async () => {
+    try {
+      await AsyncStorage.setItem('skipMoodCheck', 'true');
+      navigation.replace('MindModeSelection', { skipped: true });
+    } catch (error) {
+      console.error('Error saving skip preference:', error);
+    }
+  };
 
-  const renderStep2 = () => (
-    <>
-      <Text style={styles.questionText}>How focused are you?</Text>
-      <View style={styles.focusContainer}>
-        {FOCUS_LEVELS.map((level) => (
-          <TouchableOpacity
-            key={level}
-            style={[
-              styles.focusButton,
-              focusLevel === level && styles.focusButtonSelected,
-            ]}
-            onPress={() => setFocusLevel(level)}
-          >
-            <Text
-              style={[
-                styles.focusText,
-                focusLevel === level && styles.focusTextSelected,
-              ]}
-            >
-              {level.charAt(0).toUpperCase() + level.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </>
-  );
+  const handleNext = () => {
+    if (!selectedMood) return;
 
-  const renderStep3 = () => (
-    <>
-      <Text style={styles.questionText}>
-        What one thing do you really want to finish today?
-      </Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Type your goal..."
-        placeholderTextColor={theme.colors.textMuted}
-        value={dailyGoal}
-        onChangeText={setDailyGoal}
-        multiline
-        numberOfLines={3}
-      />
-    </>
-  );
+    const finalGoal = selectedGoal === 'Other' ? customGoal : selectedGoal;
+
+    const moodData = {
+      mood: selectedMood,
+      mood_intensity: moodIntensity,
+      focus_level: focusLevel,
+      daily_goal: finalGoal,
+    };
+
+    navigation.navigate('MindModeSelection', { moodData });
+  };
+
+  const handleSliderTouch = (event) => {
+    const { locationX } = event.nativeEvent;
+    const percentage = Math.max(0, Math.min(100, (locationX / sliderWidth) * 100));
+    setMoodIntensity(Math.round(percentage));
+  };
 
   return (
     <LinearGradient
@@ -151,41 +112,206 @@ export const MoodCheckScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header with back button and step indicator */}
         <View style={styles.header}>
-          <Text style={styles.stepIndicator}>{currentStep}/3</Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.stepIndicator}>1/3</Text>
         </View>
 
         <View style={styles.content}>
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
+          {/* Question 1: How do you feel right now? */}
+          <Text style={styles.questionText}>How do you feel right now?</Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.moodScrollContainer}
+            contentContainerStyle={styles.moodScrollContent}
+          >
+            {MOODS.map((mood) => (
+              <TouchableOpacity
+                key={mood.value}
+                style={[
+                  styles.moodButton,
+                  selectedMood === mood.value && styles.moodButtonSelected,
+                ]}
+                onPress={() => setSelectedMood(mood.value)}
+              >
+                <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+                <Text style={styles.moodLabel}>{mood.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Slider for mood intensity percentage */}
+          {selectedMood && (
+            <View style={styles.sliderContainer}>
+              <TouchableOpacity
+                style={styles.sliderTrack}
+                activeOpacity={1}
+                onPress={handleSliderTouch}
+                onLayout={(event) => {
+                  const { width } = event.nativeEvent.layout;
+                  setSliderWidth(width);
+                }}
+              >
+                <View
+                  style={[
+                    styles.sliderFill,
+                    { width: `${moodIntensity}%` }
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.sliderThumb,
+                    { left: `${moodIntensity}%` }
+                  ]}
+                />
+              </TouchableOpacity>
+              <Text style={styles.sliderPercentage}>{moodIntensity}%</Text>
+            </View>
+          )}
+
+          {/* Question 2: How focused are you? */}
+          <Text style={styles.questionText}>How focused are you?</Text>
+          <View style={styles.focusContainer}>
+            {FOCUS_LEVELS.map((level) => (
+              <TouchableOpacity
+                key={level}
+                style={[
+                  styles.focusButton,
+                  focusLevel === level && styles.focusButtonSelected,
+                ]}
+                onPress={() => setFocusLevel(level)}
+              >
+                <Text
+                  style={[
+                    styles.focusText,
+                    focusLevel === level && styles.focusTextSelected,
+                  ]}
+                >
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Question 3: Daily goal dropdown */}
+          <Text style={styles.questionText}>
+            What one thing do you really want to finish today?
+          </Text>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setShowGoalPicker(true)}
+          >
+            <Text style={[
+              styles.dropdownButtonText,
+              !selectedGoal && styles.dropdownPlaceholder
+            ]}>
+              {selectedGoal || 'Type your goal...'}
+            </Text>
+            <Text style={styles.dropdownIcon}>→</Text>
+          </TouchableOpacity>
+
+          {/* Show custom input if "Other" is selected */}
+          {selectedGoal === 'Other' && (
+            <TextInput
+              style={styles.customGoalInput}
+              placeholder="Type your custom goal..."
+              placeholderTextColor={theme.colors.textMuted}
+              value={customGoal}
+              onChangeText={setCustomGoal}
+              multiline
+            />
+          )}
+
+          {/* Skip options */}
+          <View style={styles.skipContainer}>
+            <TouchableOpacity onPress={handleSkipForNow}>
+              <Text style={styles.skipText}>Skip for now</Text>
+            </TouchableOpacity>
+            <Text style={styles.skipDivider}>|</Text>
+            <TouchableOpacity onPress={handleSkipAlways}>
+              <Text style={styles.skipText}>Don't show again</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
+        {/* Next Button */}
         <TouchableOpacity
           style={[
             styles.nextButton,
-            (currentStep === 1 && !selectedMood) && styles.nextButtonDisabled,
+            !selectedMood && styles.nextButtonDisabled,
           ]}
           onPress={handleNext}
-          disabled={currentStep === 1 && !selectedMood}
+          disabled={!selectedMood}
           activeOpacity={0.8}
         >
-          {/* Gradient border layer */}
           <LinearGradient
             colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.nextButtonGradientBorder}
           >
-            {/* Inner transparent background */}
             <View style={styles.nextButtonInner}>
-              <Text style={styles.nextButtonText}>
-                {currentStep === 3 ? 'CONTINUE' : 'NEXT'}
-              </Text>
+              <Text style={styles.nextButtonText}>Next</Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Goal Picker Modal */}
+      <Modal
+        visible={showGoalPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowGoalPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select your daily goal</Text>
+              <TouchableOpacity onPress={() => setShowGoalPicker(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScroll}>
+              {DAILY_GOALS.map((goal, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.goalOption,
+                    selectedGoal === goal && styles.goalOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedGoal(goal);
+                    if (goal !== 'Other') {
+                      setShowGoalPicker(false);
+                    } else {
+                      setShowGoalPicker(false);
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.goalOptionText,
+                    selectedGoal === goal && styles.goalOptionTextSelected,
+                  ]}>
+                    {goal}
+                  </Text>
+                  {selectedGoal === goal && (
+                    <Text style={styles.goalCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -199,8 +325,21 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
   },
   header: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: theme.colors.text,
   },
   stepIndicator: {
     fontSize: theme.fonts.sizes.md,
@@ -209,80 +348,90 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    marginTop: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
   },
   questionText: {
     fontSize: theme.fonts.sizes.xl,
     color: theme.colors.text,
     fontWeight: 'bold',
-    marginBottom: theme.spacing.xl,
-    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+    marginTop: theme.spacing.xl,
   },
-  moodContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    marginBottom: theme.spacing.xl,
+  // Mood selection styles
+  moodScrollContainer: {
+    marginBottom: theme.spacing.lg,
+  },
+  moodScrollContent: {
+    paddingRight: theme.spacing.lg,
   },
   moodButton: {
     alignItems: 'center',
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     borderWidth: 2,
-    borderColor: 'transparent',
-    width: width / 3 - theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    borderColor: theme.colors.border,
+    marginRight: theme.spacing.md,
+    minWidth: 80,
   },
   moodButtonSelected: {
     borderColor: theme.colors.alpha,
-    backgroundColor: 'rgba(13, 148, 136, 0.1)',
+    backgroundColor: 'rgba(13, 148, 136, 0.2)',
   },
   moodEmoji: {
-    fontSize: 40,
-    marginBottom: theme.spacing.sm,
+    fontSize: 36,
+    marginBottom: theme.spacing.xs,
   },
   moodLabel: {
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.text,
+    fontWeight: '500',
   },
-  emojiSliderContainer: {
-    marginTop: theme.spacing.lg,
-  },
-  sliderLabel: {
-    fontSize: theme.fonts.sizes.md,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.sm,
-  },
-  ratingButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: theme.spacing.sm,
-  },
-  ratingButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
+  // Slider styles
+  sliderContainer: {
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
     alignItems: 'center',
   },
-  ratingButtonSelected: {
-    borderColor: theme.colors.alpha,
-    backgroundColor: 'rgba(13, 148, 136, 0.2)',
+  sliderTrack: {
+    width: '100%',
+    height: 8,
+    backgroundColor: theme.colors.border,
+    borderRadius: 4,
+    position: 'relative',
+    marginBottom: theme.spacing.sm,
   },
-  ratingText: {
-    fontSize: theme.fonts.sizes.lg,
-    color: theme.colors.textSecondary,
+  sliderFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    backgroundColor: theme.colors.alpha,
+    borderRadius: 4,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    top: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.alpha,
+    marginLeft: -12,
+    shadowColor: theme.colors.alpha,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  sliderPercentage: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.alpha,
     fontWeight: 'bold',
   },
-  ratingTextSelected: {
-    color: theme.colors.alpha,
-  },
+  // Focus level styles
   focusContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: theme.spacing.lg,
   },
   focusButton: {
     flex: 1,
@@ -306,30 +455,74 @@ const styles = StyleSheet.create({
   focusTextSelected: {
     color: theme.colors.alpha,
   },
-  input: {
+  // Dropdown styles
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
+  },
+  dropdownButtonText: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  dropdownPlaceholder: {
+    color: theme.colors.textMuted,
+  },
+  dropdownIcon: {
+    fontSize: 20,
+    color: theme.colors.textSecondary,
+  },
+  customGoalInput: {
     backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     fontSize: theme.fonts.sizes.md,
     color: theme.colors.text,
-    minHeight: 100,
+    minHeight: 80,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.alpha,
+    marginBottom: theme.spacing.md,
   },
+  // Skip options styles
+  skipContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  skipText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textMuted,
+    textDecorationLine: 'underline',
+  },
+  skipDivider: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textMuted,
+    marginHorizontal: theme.spacing.md,
+  },
+  // Next button styles
   nextButton: {
-    marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.lg,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
   },
   nextButtonDisabled: {
     opacity: 0.5,
   },
   nextButtonGradientBorder: {
     borderRadius: theme.borderRadius.lg,
-    padding: 2, // Border width
+    padding: 2,
   },
   nextButtonInner: {
-    backgroundColor: 'rgba(0, 6, 20, 0.6)', // Semi-transparent dark background
+    backgroundColor: 'rgba(0, 6, 20, 0.6)',
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.lg - 1,
     alignItems: 'center',
@@ -340,6 +533,65 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.cardBackground,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    maxHeight: '70%',
+    paddingBottom: theme.spacing.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: theme.fonts.sizes.lg,
+    color: theme.colors.text,
+    fontWeight: 'bold',
+  },
+  modalClose: {
+    fontSize: 24,
+    color: theme.colors.textSecondary,
+  },
+  modalScroll: {
+    paddingHorizontal: theme.spacing.lg,
+  },
+  goalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  goalOptionSelected: {
+    backgroundColor: 'rgba(13, 148, 136, 0.1)',
+  },
+  goalOptionText: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  goalOptionTextSelected: {
+    color: theme.colors.alpha,
+    fontWeight: '600',
+  },
+  goalCheckmark: {
+    fontSize: 20,
+    color: theme.colors.alpha,
+    fontWeight: 'bold',
   },
 });
 
