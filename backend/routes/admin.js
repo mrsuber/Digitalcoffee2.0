@@ -457,7 +457,7 @@ router.get('/audio', adminAuth, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT a.*,
-              (SELECT COUNT(*) FROM audio_listening_sessions WHERE audio_id = a.id) as total_sessions
+              (SELECT COUNT(*) FROM listening_sessions WHERE audio_content_id = a.id) as total_sessions
        FROM audio_content a
        ORDER BY a.created_at DESC`
     );
@@ -484,7 +484,7 @@ router.post('/audio', adminAuth,
     body('description').notEmpty().trim(),
     body('type').isIn(['meditation', 'affirmation', 'music', 'course']),
     body('audio_url').notEmpty().trim(),
-    body('duration_seconds').isInt({ min: 1 })
+    body('duration_listened_seconds').isInt({ min: 1 })
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -495,14 +495,14 @@ router.post('/audio', adminAuth,
       });
     }
 
-    const { title, description, type, audio_url, duration_seconds, brainwave_type, course_session_id, thumbnail_url } = req.body;
+    const { title, description, type, audio_url, duration_listened_seconds, brainwave_type, course_session_id, thumbnail_url } = req.body;
 
     try {
       const result = await db.query(
-        `INSERT INTO audio_content (title, description, type, audio_url, duration_seconds, brainwave_type, course_session_id, thumbnail_url)
+        `INSERT INTO audio_content (title, description, type, audio_url, duration_listened_seconds, brainwave_type, course_session_id, thumbnail_url)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
-        [title, description, type, audio_url, duration_seconds, brainwave_type, course_session_id, thumbnail_url]
+        [title, description, type, audio_url, duration_listened_seconds, brainwave_type, course_session_id, thumbnail_url]
       );
 
       res.status(201).json({
@@ -526,7 +526,7 @@ router.post('/audio', adminAuth,
 router.put('/audio/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, type, audio_url, duration_seconds, brainwave_type, thumbnail_url } = req.body;
+    const { title, description, type, audio_url, duration_listened_seconds, brainwave_type, thumbnail_url } = req.body;
 
     const result = await db.query(
       `UPDATE audio_content
@@ -534,13 +534,13 @@ router.put('/audio/:id', adminAuth, async (req, res) => {
            description = COALESCE($2, description),
            type = COALESCE($3, type),
            audio_url = COALESCE($4, audio_url),
-           duration_seconds = COALESCE($5, duration_seconds),
+           duration_listened_seconds = COALESCE($5, duration_listened_seconds),
            brainwave_type = COALESCE($6, brainwave_type),
            thumbnail_url = COALESCE($7, thumbnail_url),
            updated_at = NOW()
        WHERE id = $8
        RETURNING *`,
-      [title, description, type, audio_url, duration_seconds, brainwave_type, thumbnail_url, id]
+      [title, description, type, audio_url, duration_listened_seconds, brainwave_type, thumbnail_url, id]
     );
 
     if (result.rows.length === 0) {
@@ -693,11 +693,11 @@ router.get('/focus-sessions', adminAuth, async (req, res) => {
     const totalStats = await db.query(
       `SELECT
         COUNT(*) as total_sessions,
-        AVG(duration_seconds) as avg_duration,
-        SUM(duration_seconds) as total_duration,
+        AVG(duration_listened_seconds) as avg_duration,
+        SUM(duration_listened_seconds) as total_duration,
         COUNT(DISTINCT user_id) as unique_users
-       FROM audio_listening_sessions
-       WHERE started_at >= NOW() - INTERVAL '${period} days'`
+       FROM listening_sessions
+       WHERE created_at >= NOW() - INTERVAL '${period} days'`
     );
 
     // Sessions by brainwave type
@@ -705,10 +705,10 @@ router.get('/focus-sessions', adminAuth, async (req, res) => {
       `SELECT
         ac.brainwave_type,
         COUNT(als.id) as session_count,
-        AVG(als.duration_seconds) as avg_duration,
-        SUM(als.duration_seconds) as total_duration
-       FROM audio_listening_sessions als
-       JOIN audio_content ac ON als.audio_id = ac.id
+        AVG(als.duration_listened_seconds) as avg_duration,
+        SUM(als.duration_listened_seconds) as total_duration
+       FROM listening_sessions als
+       JOIN audio_content ac ON als.audio_content_id = ac.id
        WHERE als.started_at >= NOW() - INTERVAL '${period} days'
        AND ac.brainwave_type IS NOT NULL
        GROUP BY ac.brainwave_type
@@ -718,13 +718,13 @@ router.get('/focus-sessions', adminAuth, async (req, res) => {
     // Daily session trends
     const dailyTrends = await db.query(
       `SELECT
-        DATE(started_at) as date,
+        DATE(created_at) as date,
         COUNT(*) as session_count,
-        AVG(duration_seconds) as avg_duration,
+        AVG(duration_listened_seconds) as avg_duration,
         COUNT(DISTINCT user_id) as unique_users
-       FROM audio_listening_sessions
-       WHERE started_at >= NOW() - INTERVAL '${period} days'
-       GROUP BY DATE(started_at)
+       FROM listening_sessions
+       WHERE created_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY DATE(created_at)
        ORDER BY date ASC`
     );
 
@@ -733,9 +733,9 @@ router.get('/focus-sessions', adminAuth, async (req, res) => {
       `SELECT
         ac.id, ac.title, ac.type, ac.brainwave_type,
         COUNT(als.id) as play_count,
-        AVG(als.duration_seconds) as avg_listen_duration
+        AVG(als.duration_listened_seconds) as avg_listen_duration
        FROM audio_content ac
-       LEFT JOIN audio_listening_sessions als ON ac.id = als.audio_id
+       LEFT JOIN listening_sessions als ON ac.id = als.audio_content_id
        WHERE als.started_at >= NOW() - INTERVAL '${period} days' OR als.started_at IS NULL
        GROUP BY ac.id, ac.title, ac.type, ac.brainwave_type
        ORDER BY play_count DESC
@@ -745,14 +745,14 @@ router.get('/focus-sessions', adminAuth, async (req, res) => {
     // Recent sessions with user details
     const recentSessions = await db.query(
       `SELECT
-        als.id, als.duration_seconds, als.started_at, als.completed_at,
+        als.id, als.duration_listened_seconds, als.created_at as started_at, als.completed_at,
         u.email, u.name as user_name,
         ac.title as audio_title, ac.type, ac.brainwave_type
-       FROM audio_listening_sessions als
+       FROM listening_sessions als
        JOIN users u ON als.user_id = u.id
-       JOIN audio_content ac ON als.audio_id = ac.id
-       WHERE als.started_at >= NOW() - INTERVAL '${period} days'
-       ORDER BY als.started_at DESC
+       JOIN audio_content ac ON als.audio_content_id = ac.id
+       WHERE als.created_at >= NOW() - INTERVAL '${period} days'
+       ORDER BY als.created_at DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
@@ -760,8 +760,8 @@ router.get('/focus-sessions', adminAuth, async (req, res) => {
     // Get total count for pagination
     const countResult = await db.query(
       `SELECT COUNT(*) as total
-       FROM audio_listening_sessions
-       WHERE started_at >= NOW() - INTERVAL '${period} days'`
+       FROM listening_sessions
+       WHERE created_at >= NOW() - INTERVAL '${period} days'`
     );
 
     res.json({
@@ -795,23 +795,23 @@ router.get('/engagement-metrics', adminAuth, async (req, res) => {
 
     // Daily active users
     const dailyActiveUsers = await db.query(
-      `SELECT DATE(started_at) as date, COUNT(DISTINCT user_id) as active_users
-       FROM audio_listening_sessions
-       WHERE started_at >= NOW() - INTERVAL '${period} days'
-       GROUP BY DATE(started_at)
+      `SELECT DATE(created_at) as date, COUNT(DISTINCT user_id) as active_users
+       FROM listening_sessions
+       WHERE created_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY DATE(created_at)
        ORDER BY date ASC`
     );
 
     // User retention (users who returned)
     const retention = await db.query(
       `WITH first_session AS (
-        SELECT user_id, MIN(DATE(started_at)) as first_date
-        FROM audio_listening_sessions
+        SELECT user_id, MIN(DATE(created_at)) as first_date
+        FROM listening_sessions
         GROUP BY user_id
       ),
       returning_users AS (
         SELECT als.user_id, DATE(als.started_at) as session_date
-        FROM audio_listening_sessions als
+        FROM listening_sessions als
         JOIN first_session fs ON als.user_id = fs.user_id
         WHERE DATE(als.started_at) > fs.first_date
         AND als.started_at >= NOW() - INTERVAL '${period} days'
@@ -825,8 +825,8 @@ router.get('/engagement-metrics', adminAuth, async (req, res) => {
       `SELECT AVG(session_count) as avg_sessions
        FROM (
          SELECT user_id, COUNT(*) as session_count
-         FROM audio_listening_sessions
-         WHERE started_at >= NOW() - INTERVAL '${period} days'
+         FROM listening_sessions
+         WHERE created_at >= NOW() - INTERVAL '${period} days'
          GROUP BY user_id
        ) user_sessions`
     );
@@ -840,8 +840,8 @@ router.get('/engagement-metrics', adminAuth, async (req, res) => {
           (COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::DECIMAL / COUNT(*)) * 100,
           2
         ) as completion_rate
-       FROM audio_listening_sessions
-       WHERE started_at >= NOW() - INTERVAL '${period} days'`
+       FROM listening_sessions
+       WHERE created_at >= NOW() - INTERVAL '${period} days'`
     );
 
     res.json({
