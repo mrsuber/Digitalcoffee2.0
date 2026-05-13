@@ -94,4 +94,22 @@ export const adminAudioAPI = {
     api.delete(`/admin/audio/${id}`),
 };
 
+// Admin Mood Analytics API
+export const adminMoodAPI = {
+  getMoodAnalytics: (period = '30') =>
+    api.get(`/admin/mood-analytics?period=${period}`),
+};
+
+// Admin Focus Sessions API
+export const adminFocusSessionsAPI = {
+  getFocusSessions: (period = '30', page = 1, limit = 50) =>
+    api.get(`/admin/focus-sessions?period=${period}&page=${page}&limit=${limit}`),
+};
+
+// Admin Engagement Metrics API
+export const adminEngagementAPI = {
+  getEngagementMetrics: (period = '30') =>
+    api.get(`/admin/engagement-metrics?period=${period}`),
+};
+
 export default api;

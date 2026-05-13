@@ -8,6 +8,8 @@ import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Courses from './pages/Courses';
 import AudioContent from './pages/AudioContent';
+import MoodAnalytics from './pages/MoodAnalytics';
+import FocusSessions from './pages/FocusSessions';
 import Layout from './components/Layout';
 
 function PrivateRoute({ children }) {
@@ -38,6 +40,8 @@ function App() {
             <Route path="users" element={<Users />} />
             <Route path="courses" element={<Courses />} />
             <Route path="audio" element={<AudioContent />} />
+            <Route path="mood-analytics" element={<MoodAnalytics />} />
+            <Route path="focus-sessions" element={<FocusSessions />} />
           </Route>
         </Routes>
       </BrowserRouter>

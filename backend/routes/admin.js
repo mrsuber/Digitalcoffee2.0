@@ -596,4 +596,270 @@ router.delete('/audio/:id', adminAuth, async (req, res) => {
   }
 });
 
+// ===== MOOD ANALYTICS ENDPOINTS =====
+
+// Get mood analytics
+router.get('/mood-analytics', adminAuth, async (req, res) => {
+  try {
+    const { period = '30' } = req.query; // days
+
+    // Mood distribution
+    const moodDistribution = await db.query(
+      `SELECT mood, COUNT(*) as count
+       FROM mood_checkins
+       WHERE created_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY mood
+       ORDER BY count DESC`
+    );
+
+    // Focus level distribution
+    const focusDistribution = await db.query(
+      `SELECT focus_level, COUNT(*) as count
+       FROM mood_checkins
+       WHERE created_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY focus_level
+       ORDER BY count DESC`
+    );
+
+    // Mood trends over time
+    const moodTrends = await db.query(
+      `SELECT DATE(created_at) as date, mood, COUNT(*) as count
+       FROM mood_checkins
+       WHERE created_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY DATE(created_at), mood
+       ORDER BY date ASC`
+    );
+
+    // Daily check-in rate
+    const dailyCheckins = await db.query(
+      `SELECT DATE(created_at) as date, COUNT(DISTINCT user_id) as unique_users, COUNT(*) as total_checkins
+       FROM mood_checkins
+       WHERE created_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`
+    );
+
+    // Most common daily goals
+    const topGoals = await db.query(
+      `SELECT daily_goal, COUNT(*) as count
+       FROM mood_checkins
+       WHERE created_at >= NOW() - INTERVAL '${period} days'
+       AND daily_goal IS NOT NULL
+       GROUP BY daily_goal
+       ORDER BY count DESC
+       LIMIT 10`
+    );
+
+    // Users with highest check-in frequency
+    const topUsers = await db.query(
+      `SELECT u.id, u.email, u.name, COUNT(mc.id) as checkin_count
+       FROM users u
+       JOIN mood_checkins mc ON u.id = mc.user_id
+       WHERE mc.created_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY u.id, u.email, u.name
+       ORDER BY checkin_count DESC
+       LIMIT 10`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        moodDistribution: moodDistribution.rows,
+        focusDistribution: focusDistribution.rows,
+        moodTrends: moodTrends.rows,
+        dailyCheckins: dailyCheckins.rows,
+        topGoals: topGoals.rows,
+        topUsers: topUsers.rows
+      }
+    });
+  } catch (error) {
+    console.error('Mood analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching mood analytics'
+    });
+  }
+});
+
+// ===== FOCUS SESSIONS ENDPOINTS =====
+
+// Get focus sessions analytics
+router.get('/focus-sessions', adminAuth, async (req, res) => {
+  try {
+    const { period = '30', page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Total sessions stats
+    const totalStats = await db.query(
+      `SELECT
+        COUNT(*) as total_sessions,
+        AVG(duration_seconds) as avg_duration,
+        SUM(duration_seconds) as total_duration,
+        COUNT(DISTINCT user_id) as unique_users
+       FROM audio_listening_sessions
+       WHERE started_at >= NOW() - INTERVAL '${period} days'`
+    );
+
+    // Sessions by brainwave type
+    const brainwaveStats = await db.query(
+      `SELECT
+        ac.brainwave_type,
+        COUNT(als.id) as session_count,
+        AVG(als.duration_seconds) as avg_duration,
+        SUM(als.duration_seconds) as total_duration
+       FROM audio_listening_sessions als
+       JOIN audio_content ac ON als.audio_id = ac.id
+       WHERE als.started_at >= NOW() - INTERVAL '${period} days'
+       AND ac.brainwave_type IS NOT NULL
+       GROUP BY ac.brainwave_type
+       ORDER BY session_count DESC`
+    );
+
+    // Daily session trends
+    const dailyTrends = await db.query(
+      `SELECT
+        DATE(started_at) as date,
+        COUNT(*) as session_count,
+        AVG(duration_seconds) as avg_duration,
+        COUNT(DISTINCT user_id) as unique_users
+       FROM audio_listening_sessions
+       WHERE started_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY DATE(started_at)
+       ORDER BY date ASC`
+    );
+
+    // Most popular audio content
+    const popularAudio = await db.query(
+      `SELECT
+        ac.id, ac.title, ac.type, ac.brainwave_type,
+        COUNT(als.id) as play_count,
+        AVG(als.duration_seconds) as avg_listen_duration
+       FROM audio_content ac
+       LEFT JOIN audio_listening_sessions als ON ac.id = als.audio_id
+       WHERE als.started_at >= NOW() - INTERVAL '${period} days' OR als.started_at IS NULL
+       GROUP BY ac.id, ac.title, ac.type, ac.brainwave_type
+       ORDER BY play_count DESC
+       LIMIT 10`
+    );
+
+    // Recent sessions with user details
+    const recentSessions = await db.query(
+      `SELECT
+        als.id, als.duration_seconds, als.started_at, als.completed_at,
+        u.email, u.name as user_name,
+        ac.title as audio_title, ac.type, ac.brainwave_type
+       FROM audio_listening_sessions als
+       JOIN users u ON als.user_id = u.id
+       JOIN audio_content ac ON als.audio_id = ac.id
+       WHERE als.started_at >= NOW() - INTERVAL '${period} days'
+       ORDER BY als.started_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    // Get total count for pagination
+    const countResult = await db.query(
+      `SELECT COUNT(*) as total
+       FROM audio_listening_sessions
+       WHERE started_at >= NOW() - INTERVAL '${period} days'`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        totalStats: totalStats.rows[0],
+        brainwaveStats: brainwaveStats.rows,
+        dailyTrends: dailyTrends.rows,
+        popularAudio: popularAudio.rows,
+        recentSessions: recentSessions.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: parseInt(countResult.rows[0].total)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Focus sessions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching focus sessions'
+    });
+  }
+});
+
+// Get user engagement metrics
+router.get('/engagement-metrics', adminAuth, async (req, res) => {
+  try {
+    const { period = '30' } = req.query;
+
+    // Daily active users
+    const dailyActiveUsers = await db.query(
+      `SELECT DATE(started_at) as date, COUNT(DISTINCT user_id) as active_users
+       FROM audio_listening_sessions
+       WHERE started_at >= NOW() - INTERVAL '${period} days'
+       GROUP BY DATE(started_at)
+       ORDER BY date ASC`
+    );
+
+    // User retention (users who returned)
+    const retention = await db.query(
+      `WITH first_session AS (
+        SELECT user_id, MIN(DATE(started_at)) as first_date
+        FROM audio_listening_sessions
+        GROUP BY user_id
+      ),
+      returning_users AS (
+        SELECT als.user_id, DATE(als.started_at) as session_date
+        FROM audio_listening_sessions als
+        JOIN first_session fs ON als.user_id = fs.user_id
+        WHERE DATE(als.started_at) > fs.first_date
+        AND als.started_at >= NOW() - INTERVAL '${period} days'
+      )
+      SELECT COUNT(DISTINCT user_id) as returning_users
+      FROM returning_users`
+    );
+
+    // Average sessions per user
+    const avgSessionsPerUser = await db.query(
+      `SELECT AVG(session_count) as avg_sessions
+       FROM (
+         SELECT user_id, COUNT(*) as session_count
+         FROM audio_listening_sessions
+         WHERE started_at >= NOW() - INTERVAL '${period} days'
+         GROUP BY user_id
+       ) user_sessions`
+    );
+
+    // Completion rate
+    const completionRate = await db.query(
+      `SELECT
+        COUNT(*) as total_sessions,
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL) as completed_sessions,
+        ROUND(
+          (COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::DECIMAL / COUNT(*)) * 100,
+          2
+        ) as completion_rate
+       FROM audio_listening_sessions
+       WHERE started_at >= NOW() - INTERVAL '${period} days'`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        dailyActiveUsers: dailyActiveUsers.rows,
+        returningUsers: parseInt(retention.rows[0].returning_users),
+        avgSessionsPerUser: parseFloat(avgSessionsPerUser.rows[0].avg_sessions || 0),
+        completionRate: completionRate.rows[0]
+      }
+    });
+  } catch (error) {
+    console.error('Engagement metrics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching engagement metrics'
+    });
+  }
+});
+
 module.exports = router;

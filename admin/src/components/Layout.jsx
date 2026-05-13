@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, BookOpen, Music, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Music, Heart, Brain, LogOut } from 'lucide-react';
 
 export default function Layout() {
   const { admin, logout } = useAuth();
@@ -11,6 +11,8 @@ export default function Layout() {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/users', icon: Users, label: 'Users' },
+    { path: '/mood-analytics', icon: Heart, label: 'Mood Analytics' },
+    { path: '/focus-sessions', icon: Brain, label: 'Focus Sessions' },
     { path: '/courses', icon: BookOpen, label: 'Courses' },
     { path: '/audio', icon: Music, label: 'Audio Content' },
   ];
