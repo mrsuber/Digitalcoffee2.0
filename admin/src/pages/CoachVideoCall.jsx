@@ -139,11 +139,12 @@ export default function CoachVideoCall() {
           console.log('✅ Socket connected:', socketRef.current.id);
 
           // Register user with socket server
-          if (admin?.user_id) {
-            console.log('📝 Registering coach with socket server:', admin.user_id);
-            socketRef.current.emit('register-user', { userId: admin.user_id });
+          if (admin?.id) {
+            console.log('📝 Registering coach with socket server:', admin.id);
+            socketRef.current.emit('register-user', { userId: admin.id });
           } else {
             clearTimeout(registrationTimeout);
+            console.error('❌ No admin ID available. Admin object:', admin);
             reject(new Error('No admin user ID available'));
           }
         });
@@ -175,9 +176,9 @@ export default function CoachVideoCall() {
         console.log(`✅ Socket reconnected after ${attemptNumber} attempts`);
         setStatusMessage('Reconnected to server');
         // Re-register on reconnect
-        if (admin?.user_id) {
+        if (admin?.id) {
           console.log('📝 Re-registering coach after reconnect');
-          socketRef.current.emit('register-user', { userId: admin.user_id });
+          socketRef.current.emit('register-user', { userId: admin.id });
         }
       });
 
