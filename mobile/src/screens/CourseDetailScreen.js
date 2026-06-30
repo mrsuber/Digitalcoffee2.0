@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,99 +6,122 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
+import { courseAPI } from '../services/api';
 
-// Sample course data - would come from API
-const COURSE_DATA = {
-  id: '1',
-  title: 'Beat Overthinking',
-  description:
-    'A 5-day program designed to help you break free from the cycle of overthinking. Learn practical techniques to calm your mind, increase focus, and regain control of your thoughts.',
-  duration: '5 days',
-  totalTime: '75 min',
-  difficulty: 'Beginner',
-  image: require('../../assets/hyper-focus.png'),
-  instructor: 'Dr. Sarah Chen',
-  category: 'Focus',
-  enrolled: false,
-  progress: 0,
-  sessions: [
-    {
-      id: '1',
-      day: 1,
-      title: 'Understanding Your Thoughts',
-      duration: '15 min',
-      type: 'Guided Talk',
-      locked: false,
-      completed: false,
-    },
-    {
-      id: '2',
-      day: 2,
-      title: 'The Pause Technique',
-      duration: '12 min',
-      type: 'Practice',
-      locked: true,
-      completed: false,
-    },
-    {
-      id: '3',
-      day: 3,
-      title: 'Mindful Observation',
-      duration: '18 min',
-      type: 'Meditation',
-      locked: true,
-      completed: false,
-    },
-    {
-      id: '4',
-      day: 4,
-      title: 'Breaking Thought Loops',
-      duration: '15 min',
-      type: 'Guided Talk',
-      locked: true,
-      completed: false,
-    },
-    {
-      id: '5',
-      day: 5,
-      title: 'Creating Mental Space',
-      duration: '15 min',
-      type: 'Integration',
-      locked: true,
-      completed: false,
-    },
-  ],
-  benefits: [
+// Image mapping for course modes (same as CoursesScreen)
+const COURSE_IMAGES = {
+  'hyper-focus': require('../../assets/course-overthinking.jpg'),
+  'calm-down': require('../../assets/course-peace.jpg'),
+  'infinite-inspiration': require('../../assets/course-inspiration.jpg'),
+  'sleep': require('../../assets/course-sleep.jpg'),
+  'anxiety': require('../../assets/course-anxiety.jpg'),
+  'performance': require('../../assets/course-performance.jpg'),
+};
+
+export const CourseDetailScreen = ({ navigation, route }) => {
+  const { courseId } = route.params || {};
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+
+  useEffect(() => {
+    if (courseId) {
+      loadCourseDetails();
+    }
+  }, [courseId]);
+
+  const loadCourseDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await courseAPI.getCourse(courseId);
+      if (response.success) {
+        setCourse(response.data);
+        // Check if enrolled by seeing if there's enrollment data
+        const enrolledResponse = await courseAPI.getEnrolled();
+        if (enrolledResponse.success) {
+          const enrolled = enrolledResponse.data.some(c => c.id.toString() === courseId.toString());
+          setIsEnrolled(enrolled);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading course:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEnroll = async () => {
+    try {
+      const response = await courseAPI.enroll(courseId);
+      if (response.success) {
+        setIsEnrolled(true);
+        loadCourseDetails(); // Reload to get updated data
+      }
+    } catch (error) {
+      console.error('Error enrolling:', error);
+    }
+  };
+
+  const handleStartSession = (session) => {
+    if (!session) {
+      console.log('No session available');
+      return;
+    }
+    if (session.locked && !isEnrolled) {
+      // Show enrollment prompt or alert that this session is locked
+      alert('Complete previous sessions to unlock this one!');
+      return;
+    }
+
+    // Check if session has audio linked
+    if (!session.audio_content_id) {
+      alert('No audio available for this session yet.');
+      return;
+    }
+
+    // Navigate to Focus stack's AudioPlayer
+    navigation.navigate('Focus', {
+      screen: 'AudioPlayer',
+      params: {
+        audioId: session.audio_content_id,
+        courseSessionId: session.id,
+        courseId: courseId,
+      }
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.alpha} />
+      </View>
+    );
+  }
+
+  if (!course) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: theme.spacing.xl }]}>
+        <Text style={styles.title}>Course not found</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.enrollButton}>
+          <Text style={styles.enrollButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Get the correct image based on mode
+  const courseImage = COURSE_IMAGES[course.mode] || COURSE_IMAGES['hyper-focus'];
+  const sessions = course.sessions || [];
+  const benefits = [
     'Reduce mental clutter',
     'Improve decision-making',
     'Increase mental clarity',
     'Better sleep quality',
-  ],
-  prerequisites: 'None - suitable for beginners',
-};
-
-export const CourseDetailScreen = ({ navigation, route }) => {
-  const [isEnrolled, setIsEnrolled] = useState(COURSE_DATA.enrolled);
-
-  const handleEnroll = () => {
-    setIsEnrolled(true);
-    // TODO: Call API to enroll user
-  };
-
-  const handleStartSession = (session) => {
-    if (session.locked && !isEnrolled) {
-      // Show enrollment prompt
-      return;
-    }
-    // Navigate to appropriate screen based on session type
-    navigation.navigate('Focus', {
-      screen: 'AudioPlayer',
-      params: { sessionId: session.id },
-    });
-  };
+  ];
 
   return (
     <LinearGradient
@@ -128,7 +151,7 @@ export const CourseDetailScreen = ({ navigation, route }) => {
 
         {/* Course Banner */}
         <View style={styles.bannerContainer}>
-          <Image source={COURSE_DATA.image} style={styles.bannerImage} />
+          <Image source={courseImage} style={styles.bannerImage} />
           <LinearGradient
             colors={['transparent', 'rgba(0, 0, 0, 0.7)']}
             style={styles.bannerGradient}
@@ -138,36 +161,36 @@ export const CourseDetailScreen = ({ navigation, route }) => {
         {/* Course Info */}
         <View style={styles.infoSection}>
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{COURSE_DATA.category}</Text>
+            <Text style={styles.categoryBadgeText}>FOCUS</Text>
           </View>
-          <Text style={styles.courseTitle}>{COURSE_DATA.title}</Text>
+          <Text style={styles.courseTitle}>{course.title}</Text>
 
           {/* Meta Info */}
           <View style={styles.metaContainer}>
             <View style={styles.metaItem}>
               <Text style={styles.metaIcon}>📅</Text>
-              <Text style={styles.metaText}>{COURSE_DATA.duration}</Text>
+              <Text style={styles.metaText}>{course.duration_days + ' days'}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaItem}>
               <Text style={styles.metaIcon}>⏱️</Text>
-              <Text style={styles.metaText}>{COURSE_DATA.totalTime}</Text>
+              <Text style={styles.metaText}>{'75 min'}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaItem}>
               <Text style={styles.metaIcon}>📊</Text>
-              <Text style={styles.metaText}>{COURSE_DATA.difficulty}</Text>
+              <Text style={styles.metaText}>{'Beginner'}</Text>
             </View>
           </View>
 
           {/* Description */}
           <Text style={styles.sectionTitle}>About This Course</Text>
-          <Text style={styles.description}>{COURSE_DATA.description}</Text>
+          <Text style={styles.description}>{course.description || 'A transformative program designed to enhance your mental clarity and focus.'}</Text>
 
           {/* Benefits */}
           <Text style={styles.sectionTitle}>What You'll Gain</Text>
           <View style={styles.benefitsList}>
-            {COURSE_DATA.benefits.map((benefit, index) => (
+            {benefits.map((benefit, index) => (
               <View key={index} style={styles.benefitItem}>
                 <Text style={styles.benefitIcon}>✓</Text>
                 <Text style={styles.benefitText}>{benefit}</Text>
@@ -178,7 +201,7 @@ export const CourseDetailScreen = ({ navigation, route }) => {
           {/* Sessions */}
           <Text style={styles.sectionTitle}>Course Sessions</Text>
           <View style={styles.sessionsList}>
-            {COURSE_DATA.sessions.map((session) => (
+            {sessions.map((session) => (
               <TouchableOpacity
                 key={session.id}
                 style={[
@@ -200,7 +223,7 @@ export const CourseDetailScreen = ({ navigation, route }) => {
                     {session.completed ? (
                       <Text style={styles.sessionDayText}>✓</Text>
                     ) : (
-                      <Text style={styles.sessionDayText}>Day {session.day}</Text>
+                      <Text style={styles.sessionDayText}>Day {session.day_number}</Text>
                     )}
                   </View>
                   <View style={styles.sessionInfo}>
@@ -233,7 +256,7 @@ export const CourseDetailScreen = ({ navigation, route }) => {
         <View style={styles.bottomButtonContainer}>
           <TouchableOpacity
             style={styles.enrollButton}
-            onPress={isEnrolled ? () => handleStartSession(COURSE_DATA.sessions[0]) : handleEnroll}
+            onPress={isEnrolled ? () => handleStartSession(sessions[0]) : handleEnroll}
             activeOpacity={0.8}
           >
             <LinearGradient

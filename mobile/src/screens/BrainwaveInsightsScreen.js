@@ -161,7 +161,10 @@ export const BrainwaveInsightsScreen = ({ navigation }) => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              // Always navigate to Courses screen (Library default)
+              navigation.navigate('Courses');
+            }}
           >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>

@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -40,6 +41,7 @@ const DAILY_GOALS = [
 ];
 
 export const MoodCheckScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const [selectedMood, setSelectedMood] = useState(null);
   const [moodIntensity, setMoodIntensity] = useState(50); // Percentage 0-100
   const [focusLevel, setFocusLevel] = useState('medium');
@@ -48,14 +50,21 @@ export const MoodCheckScreen = ({ navigation }) => {
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [sliderWidth, setSliderWidth] = useState(width - 80);
 
+  // Helper function to get user-specific storage key
+  const getUserKey = (key) => {
+    return user?.id ? `${key}_user_${user.id}` : key;
+  };
+
   // Load skip preference
   useEffect(() => {
-    checkSkipPreference();
-  }, []);
+    if (user?.id) {
+      checkSkipPreference();
+    }
+  }, [user?.id]);
 
   const checkSkipPreference = async () => {
     try {
-      const skipMoodCheck = await AsyncStorage.getItem('skipMoodCheck');
+      const skipMoodCheck = await AsyncStorage.getItem(getUserKey('skipMoodCheck'));
       if (skipMoodCheck === 'true') {
         // User chose to skip mood checks, go directly to mind mode
         navigation.replace('MindModeSelection', { skipped: true });
@@ -71,7 +80,7 @@ export const MoodCheckScreen = ({ navigation }) => {
 
   const handleSkipAlways = async () => {
     try {
-      await AsyncStorage.setItem('skipMoodCheck', 'true');
+      await AsyncStorage.setItem(getUserKey('skipMoodCheck'), 'true');
       navigation.replace('MindModeSelection', { skipped: true });
     } catch (error) {
       console.error('Error saving skip preference:', error);

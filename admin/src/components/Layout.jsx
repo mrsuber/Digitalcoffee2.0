@@ -1,20 +1,41 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, BookOpen, Music, Heart, Brain, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Music, Heart, Brain, LogOut, ListChecks, TrendingUp, UserCheck, MessageSquare, Bell, GraduationCap, CreditCard, UserX, MessageCircle, Activity, Video, VideoOff, BarChart } from 'lucide-react';
 
 export default function Layout() {
   const { admin, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Redirect coaches to coach portal
+  React.useEffect(() => {
+    if (admin?.role === 'professional_coach') {
+      navigate('/coach', { replace: true });
+    }
+  }, [admin, navigate]);
+
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/users', icon: Users, label: 'Users' },
+    { path: '/user-activity', icon: Activity, label: 'User Activity' },
+    { path: '/journals', icon: BookOpen, label: 'Journals' },
+    { path: '/subscriptions', icon: CreditCard, label: 'Subscriptions' },
+    { path: '/deletion-analytics', icon: UserX, label: 'Deletion Analytics' },
+    { path: '/feedback', icon: MessageCircle, label: 'Feedback' },
+    { path: '/professional-coaches', icon: GraduationCap, label: 'Professional Coaches' },
+    { path: '/coaching-analytics', icon: UserCheck, label: 'Coaching Analytics' },
+    { path: '/video-calls', icon: Video, label: 'Video Calls' },
+    { path: '/call-recordings', icon: VideoOff, label: 'Call Recordings' },
+    { path: '/call-analytics', icon: BarChart, label: 'Call Analytics' },
+    { path: '/progress-analytics', icon: TrendingUp, label: 'Progress Analytics' },
     { path: '/mood-analytics', icon: Heart, label: 'Mood Analytics' },
     { path: '/focus-sessions', icon: Brain, label: 'Focus Sessions' },
     { path: '/courses', icon: BookOpen, label: 'Courses' },
     { path: '/audio', icon: Music, label: 'Audio Content' },
+    { path: '/community', icon: MessageSquare, label: 'Community' },
+    { path: '/notifications', icon: Bell, label: 'Notifications' },
+    { path: '/feature-status', icon: ListChecks, label: 'Feature Status' },
   ];
 
   const handleLogout = () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
+import { audioAPI } from '../services/api';
 
 const TYPE_FILTERS = ['All', 'Binaural Beats', 'Guided', 'Affirmations', 'Meditation'];
 
@@ -21,102 +24,69 @@ const BRAINWAVE_FILTERS = [
   { id: 'gamma', label: 'Gamma', color: '#ec4899', frequency: '30+ Hz' },
 ];
 
-const AUDIO_CONTENT = [
-  {
-    id: '1',
-    title: 'Rewire Your Focus',
-    type: 'Guided Talk',
-    duration: '15 min',
-    brainwave: 'alpha',
-    frequency: '8.6 Hz',
-    plays: 1234,
-    liked: false,
-  },
-  {
-    id: '2',
-    title: 'Alpha Waves - Deep Focus',
-    type: 'Binaural Beats',
-    duration: '30 min',
-    brainwave: 'alpha',
-    frequency: '10 Hz',
-    plays: 2456,
-    liked: true,
-  },
-  {
-    id: '3',
-    title: 'Beta Boost - Active Thinking',
-    type: 'Binaural Beats',
-    duration: '20 min',
-    brainwave: 'beta',
-    frequency: '18 Hz',
-    plays: 987,
-    liked: false,
-  },
-  {
-    id: '4',
-    title: 'Theta Dreams - Creativity',
-    type: 'Binaural Beats',
-    duration: '25 min',
-    brainwave: 'theta',
-    frequency: '6 Hz',
-    plays: 1567,
-    liked: false,
-  },
-  {
-    id: '5',
-    title: 'Morning Affirmations',
-    type: 'Affirmations',
-    duration: '10 min',
-    brainwave: 'alpha',
-    frequency: '9 Hz',
-    plays: 3421,
-    liked: true,
-  },
-  {
-    id: '6',
-    title: 'Delta Sleep - Deep Rest',
-    type: 'Binaural Beats',
-    duration: '45 min',
-    brainwave: 'delta',
-    frequency: '2 Hz',
-    plays: 5678,
-    liked: false,
-  },
-  {
-    id: '7',
-    title: 'Gamma Peak - Awareness',
-    type: 'Binaural Beats',
-    duration: '15 min',
-    brainwave: 'gamma',
-    frequency: '40 Hz',
-    plays: 876,
-    liked: false,
-  },
-  {
-    id: '8',
-    title: 'Guided Body Scan',
-    type: 'Meditation',
-    duration: '20 min',
-    brainwave: 'theta',
-    frequency: '5 Hz',
-    plays: 2109,
-    liked: false,
-  },
-];
-
-export const AudioLibraryScreen = ({ navigation }) => {
+export const AudioLibraryScreen = ({ navigation, route }) => {
   const [selectedType, setSelectedType] = useState('All');
   const [selectedBrainwave, setSelectedBrainwave] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [likedAudios, setLikedAudios] = useState(
-    AUDIO_CONTENT.filter((a) => a.liked).map((a) => a.id)
-  );
+  const [audioContent, setAudioContent] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [likedAudios, setLikedAudios] = useState([]);
 
-  const filteredContent = AUDIO_CONTENT.filter((audio) => {
+  useEffect(() => {
+    loadAudioContent();
+  }, []);
+
+  const loadAudioContent = async () => {
+    try {
+      setLoading(true);
+      const response = await audioAPI.getAudioContent();
+      if (response.success) {
+        setAudioContent(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading audio content:', error);
+      // Check if it's an authentication error
+      if (error.response?.status === 403 || error.response?.status === 401) {
+        Alert.alert(
+          'Session Expired',
+          'Your session has expired. Please log out and log back in.',
+          [
+            {
+              text: 'Go to Profile',
+              onPress: () => navigation.navigate('Profile')
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to load audio content. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    return `${mins} min`;
+  };
+
+  const mapAudioType = (type) => {
+    const typeMap = {
+      'binaural': 'Binaural Beats',
+      'guided-talk': 'Guided Talk',
+      'affirmation': 'Affirmations',
+      'breathing': 'Breathing',
+      'meditation': 'Meditation',
+    };
+    return typeMap[type] || type;
+  };
+
+  const filteredContent = audioContent.filter((audio) => {
+    const audioType = mapAudioType(audio.type);
     const matchesType =
-      selectedType === 'All' || audio.type === selectedType;
+      selectedType === 'All' || audioType === selectedType;
     const matchesBrainwave =
-      selectedBrainwave === 'all' || audio.brainwave === selectedBrainwave;
+      selectedBrainwave === 'all' || audio.brainwave_type === selectedBrainwave;
     const matchesSearch =
       searchQuery === '' ||
       audio.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -160,7 +130,10 @@ export const AudioLibraryScreen = ({ navigation }) => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              // Always navigate to Courses screen (Library default)
+              navigation.navigate('Courses');
+            }}
           >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
@@ -261,56 +234,64 @@ export const AudioLibraryScreen = ({ navigation }) => {
 
         {/* Audio List */}
         <View style={styles.audioList}>
-          <Text style={styles.resultsCount}>
-            {filteredContent.length} audio{filteredContent.length !== 1 ? 's' : ''} found
-          </Text>
-          {filteredContent.map((audio) => (
-            <TouchableOpacity
-              key={audio.id}
-              style={styles.audioCard}
-              onPress={() => handlePlayAudio(audio)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.audioLeft}>
-                <LinearGradient
-                  colors={[getBrainwaveColor(audio.brainwave), getBrainwaveColor(audio.brainwave) + '80']}
-                  style={styles.audioIcon}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.alpha} />
+              <Text style={styles.loadingText}>Loading audio content...</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.resultsCount}>
+                {filteredContent.length} audio{filteredContent.length !== 1 ? 's' : ''} found
+              </Text>
+              {filteredContent.map((audio) => (
+                <TouchableOpacity
+                  key={audio.id}
+                  style={styles.audioCard}
+                  onPress={() => handlePlayAudio(audio)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.audioIconText}>▶</Text>
-                </LinearGradient>
-                <View style={styles.audioInfo}>
-                  <Text style={styles.audioTitle}>{audio.title}</Text>
-                  <View style={styles.audioMeta}>
-                    <Text style={styles.audioType}>{audio.type}</Text>
-                    <Text style={styles.audioDot}>•</Text>
-                    <Text style={styles.audioDuration}>{audio.duration}</Text>
-                    <Text style={styles.audioDot}>•</Text>
-                    <Text style={styles.audioFrequency}>{audio.frequency}</Text>
+                  <View style={styles.audioLeft}>
+                    <LinearGradient
+                      colors={[getBrainwaveColor(audio.brainwave_type), getBrainwaveColor(audio.brainwave_type) + '80']}
+                      style={styles.audioIcon}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Text style={styles.audioIconText}>▶</Text>
+                    </LinearGradient>
+                    <View style={styles.audioInfo}>
+                      <Text style={styles.audioTitle}>{audio.title}</Text>
+                      <View style={styles.audioMeta}>
+                        <Text style={styles.audioType}>{mapAudioType(audio.type)}</Text>
+                        <Text style={styles.audioDot}>•</Text>
+                        <Text style={styles.audioDuration}>{formatDuration(audio.duration_seconds)}</Text>
+                        {audio.frequency_hz && (
+                          <>
+                            <Text style={styles.audioDot}>•</Text>
+                            <Text style={styles.audioFrequency}>{audio.frequency_hz} Hz</Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.audioStats}>
-                    <Text style={styles.audioPlays}>
-                      {audio.plays.toLocaleString()} plays
+                  <TouchableOpacity
+                    style={styles.likeButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleLike(audio.id);
+                    }}
+                  >
+                    <Text style={styles.likeIcon}>
+                      {likedAudios.includes(audio.id) ? '♥' : '♡'}
                     </Text>
-                  </View>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.likeButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  toggleLike(audio.id);
-                }}
-              >
-                <Text style={styles.likeIcon}>
-                  {likedAudios.includes(audio.id) ? '♥' : '♡'}
-                </Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
 
-          {filteredContent.length === 0 && (
+          {!loading && filteredContent.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateIcon}>🎵</Text>
               <Text style={styles.emptyStateText}>No audio found</Text>
@@ -556,6 +537,15 @@ const styles = StyleSheet.create({
   emptyStateSubtext: {
     fontSize: theme.fonts.sizes.sm,
     color: theme.colors.textSecondary,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl * 2,
+  },
+  loadingText: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.md,
   },
 });
 

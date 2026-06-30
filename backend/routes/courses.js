@@ -36,6 +36,7 @@ router.get('/', async (req, res) => {
 // Get course by ID with all sessions
 router.get('/:id', async (req, res) => {
   const courseId = req.params.id;
+  const userId = req.user.userId;
 
   try {
     const courseResult = await db.query(
@@ -50,18 +51,42 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    // Get sessions with completion status
     const sessionsResult = await db.query(
-      `SELECT * FROM course_sessions
-       WHERE course_id = $1
-       ORDER BY day_number, order_index`,
-      [courseId]
+      `SELECT cs.*,
+              EXISTS(
+                SELECT 1 FROM listening_sessions ls
+                WHERE ls.course_session_id = cs.id
+                AND ls.user_id = $2
+                AND ls.completed = true
+              ) as completed
+       FROM course_sessions cs
+       WHERE cs.course_id = $1
+       ORDER BY cs.day_number, cs.order_index`,
+      [courseId, userId]
     );
+
+    // Get user's enrollment to check current_day
+    const enrollmentResult = await db.query(
+      `SELECT current_day FROM user_courses
+       WHERE user_id = $1 AND course_id = $2 AND is_active = true`,
+      [userId, courseId]
+    );
+
+    const currentDay = enrollmentResult.rows.length > 0 ? enrollmentResult.rows[0].current_day : 1;
+
+    // Add locked status to sessions (only current day and previous days are unlocked)
+    const sessionsWithLockStatus = sessionsResult.rows.map(session => ({
+      ...session,
+      locked: session.day_number > currentDay
+    }));
 
     res.json({
       success: true,
       data: {
         ...courseResult.rows[0],
-        sessions: sessionsResult.rows
+        sessions: sessionsWithLockStatus,
+        current_day: currentDay
       }
     });
   } catch (error) {

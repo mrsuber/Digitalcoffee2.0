@@ -13,7 +13,19 @@ export const AuthProvider = ({ children }) => {
     const storedAdmin = localStorage.getItem('admin');
 
     if (token && storedAdmin) {
-      setAdmin(JSON.parse(storedAdmin));
+      const adminData = JSON.parse(storedAdmin);
+      console.log('Loading admin from localStorage:', adminData);
+
+      // If role is missing, clear localStorage and force re-login
+      if (!adminData.role) {
+        console.warn('Admin data missing role field, clearing localStorage');
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('admin');
+        setLoading(false);
+        return;
+      }
+
+      setAdmin(adminData);
       setIsAuthenticated(true);
     }
 
@@ -33,7 +45,7 @@ export const AuthProvider = ({ children }) => {
         setAdmin(adminData);
         setIsAuthenticated(true);
 
-        return { success: true };
+        return { success: true, role: adminData.role };
       }
 
       return { success: false, message: 'Login failed' };

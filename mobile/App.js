@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet } from 'react-native';
+import { notificationService } from './src/services/firebase';
+import api from './src/services/api';
+import socketService from './src/services/socketService';
 
 // Import AuthContext
 import { AuthProvider } from './src/context/AuthContext';
 
 // Import screens with error boundaries
-let SplashScreen, AuthScreen, ForgotPasswordScreen, ResetPasswordScreen, IntroScreen, MoodCheckScreen, MindModeScreen, MainNavigator;
+let SplashScreen, AuthScreen, ForgotPasswordScreen, ResetPasswordScreen, IntroScreen, MoodCheckScreen, MindModeScreen, MainNavigator, IncomingCallScreen, WaitingRoomScreen, VideoCallScreen;
 
 try {
   SplashScreen = require('./src/screens/SplashScreen').default;
@@ -66,10 +69,40 @@ try {
   MainNavigator = () => <View style={styles.error}><Text style={styles.errorText}>MainNavigator Error</Text></View>;
 }
 
+try {
+  IncomingCallScreen = require('./src/screens/IncomingCallScreen').default;
+} catch (e) {
+  console.error('Error loading IncomingCallScreen:', e);
+  IncomingCallScreen = () => <View style={styles.error}><Text style={styles.errorText}>IncomingCallScreen Error</Text></View>;
+}
+
+try {
+  WaitingRoomScreen = require('./src/screens/WaitingRoomScreen').WaitingRoomScreen;
+} catch (e) {
+  console.error('Error loading WaitingRoomScreen:', e);
+  WaitingRoomScreen = () => <View style={styles.error}><Text style={styles.errorText}>WaitingRoomScreen Error</Text></View>;
+}
+
+try {
+  VideoCallScreen = require('./src/screens/VideoCallScreen').default;
+} catch (e) {
+  console.error('Error loading VideoCallScreen:', e);
+  VideoCallScreen = () => <View style={styles.error}><Text style={styles.errorText}>VideoCallScreen Error</Text></View>;
+}
+
+let CallDetailScreen;
+try {
+  CallDetailScreen = require('./src/screens/CallDetailScreen').default;
+} catch (e) {
+  console.error('Error loading CallDetailScreen:', e);
+  CallDetailScreen = () => <View style={styles.error}><Text style={styles.errorText}>CallDetailScreen Error</Text></View>;
+}
+
 const Stack = createStackNavigator();
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const navigationRef = useRef(null);
 
   useEffect(() => {
     // Show splash for 2.5 seconds
@@ -77,16 +110,70 @@ export default function App() {
       setShowSplash(false);
     }, 2500);
 
-    return () => clearTimeout(timer);
+    // Setup push notifications
+    setupPushNotifications();
+
+    return () => {
+      clearTimeout(timer);
+      notificationService.removeNotificationListeners();
+    };
   }, []);
+
+  const setupPushNotifications = async () => {
+    try {
+      // Register for push notifications
+      const token = await notificationService.registerForPushNotifications();
+
+      if (token) {
+        // Save token to backend
+        await api.saveFCMToken(token);
+      }
+
+      // Setup notification listeners
+      notificationService.setupNotificationListeners(
+        handleNotificationReceived,
+        handleNotificationResponse
+      );
+    } catch (error) {
+      console.error('Error setting up push notifications:', error);
+    }
+  };
+
+  const handleNotificationReceived = (notification) => {
+    console.log('Notification received:', notification);
+    const data = notification.request.content.data;
+
+    // Handle incoming call notification
+    if (data.type === 'incoming_call' && navigationRef.current) {
+      navigationRef.current.navigate('IncomingCall', {
+        sessionId: data.sessionId,
+        coachName: data.coachName,
+        roomId: data.roomId,
+      });
+    }
+  };
+
+  const handleNotificationResponse = (response) => {
+    console.log('Notification tapped:', response);
+    const data = response.notification.request.content.data;
+
+    // Handle incoming call notification tap
+    if (data.type === 'incoming_call' && navigationRef.current) {
+      navigationRef.current.navigate('IncomingCall', {
+        sessionId: data.sessionId,
+        coachName: data.coachName,
+        roomId: data.roomId,
+      });
+    }
+  };
 
   if (showSplash) {
     return <SplashScreen />;
   }
 
   return (
-    <AuthProvider>
-      <NavigationContainer>
+    <AuthProvider navigationRef={navigationRef}>
+      <NavigationContainer ref={navigationRef}>
         <StatusBar style="light" />
         <Stack.Navigator
           screenOptions={{
@@ -101,6 +188,26 @@ export default function App() {
           <Stack.Screen name="MoodCheck" component={MoodCheckScreen} />
           <Stack.Screen name="MindModeSelection" component={MindModeScreen} />
           <Stack.Screen name="Main" component={MainNavigator} />
+          <Stack.Screen
+            name="IncomingCall"
+            component={IncomingCallScreen}
+            options={{ presentation: 'fullScreenModal' }}
+          />
+          <Stack.Screen
+            name="WaitingRoom"
+            component={WaitingRoomScreen}
+            options={{ presentation: 'fullScreenModal', headerShown: false }}
+          />
+          <Stack.Screen
+            name="VideoCallScreen"
+            component={VideoCallScreen}
+            options={{ presentation: 'fullScreenModal' }}
+          />
+          <Stack.Screen
+            name="CallDetail"
+            component={CallDetailScreen}
+            options={{ presentation: 'modal' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </AuthProvider>

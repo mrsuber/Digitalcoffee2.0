@@ -1,4 +1,5 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -12,16 +13,41 @@ const audioRoutes = require('./routes/audio');
 const progressRoutes = require('./routes/progress');
 const journalRoutes = require('./routes/journal');
 const adminRoutes = require('./routes/admin');
+const communityRoutes = require('./routes/community');
+const coachingRoutes = require('./routes/coaching');
+const notificationsRoutes = require('./routes/notifications');
+const professionalCoachingRoutes = require('./routes/professional-coaching');
+const professionalCoachesRoutes = require('./routes/professional-coaches');
+const coachRoutes = require('./routes/coach');
+const subscriptionRoutes = require('./routes/subscription');
+const feedbackRoutes = require('./routes/feedback');
+const videoCallsRoutes = require('./routes/video-calls');
+
+const WebRTCSignalingServer = require('./services/webrtcSignaling');
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
+// Initialize WebRTC Signaling Server
+const webrtcServer = new WebRTCSignalingServer(httpServer);
+console.log('✅ WebRTC Signaling Server initialized');
+
+// Export webrtcServer for use in routes
+app.set('webrtcServer', webrtcServer);
+
 // Middleware
-app.use(helmet());
+// Configure helmet with relaxed CSP for development
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false,
+  })
+);
 app.use(compression());
 app.use(morgan('combined'));
 
-// CORS configuration
+// CORS configuration - Allow all origins for development and mobile apps
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
@@ -43,13 +69,18 @@ const corsOptions = {
     // Check if the origin is in the allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
       console.log('✅ CORS: Origin allowed');
-      callback(null, true);
+      return callback(null, true);
     } else {
-      console.log('❌ CORS: Origin not allowed');
-      callback(new Error('Not allowed by CORS'));
+      console.log('⚠️  CORS: Origin not in list, but allowing anyway');
+      // Allow all origins in development/for now
+      return callback(null, true);
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // 24 hours
 };
 
 app.use(cors(corsOptions));
@@ -86,6 +117,15 @@ app.use('/api/audio', audioRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/journal', journalRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/community', communityRoutes);
+app.use('/api/coaching', coachingRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/professional-coaching', professionalCoachingRoutes);
+app.use('/api/professional-coaches', professionalCoachesRoutes);
+app.use('/api/coach', coachRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/video-calls', videoCallsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -123,7 +163,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════╗
 ║                                               ║
@@ -135,6 +175,7 @@ app.listen(PORT, () => {
 🚀 Server running on port ${PORT}
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
 📡 API endpoints available at http://localhost:${PORT}/api
+🎥 WebRTC Video Calling enabled with Socket.io
 💚 Health check: http://localhost:${PORT}/health
   `);
 });

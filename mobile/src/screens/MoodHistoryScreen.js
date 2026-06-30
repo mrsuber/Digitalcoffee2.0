@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
+import { moodAPI } from '../services/api';
 
 const MOOD_DATA = {
   clear: { emoji: '😌', label: 'Clear', color: '#0d9488' },
@@ -23,44 +25,118 @@ const FOCUS_LEVELS = {
   high: { label: 'High', color: '#10b981' },
 };
 
-// Sample mood check-in history (last 30 days)
-const MOOD_HISTORY = [
-  { date: '2024-01-15', mood: 'clear', focusLevel: 'high', goal: 'Complete project proposal', completed: true },
-  { date: '2024-01-14', mood: 'tired', focusLevel: 'medium', goal: 'Review documentation', completed: true },
-  { date: '2024-01-13', mood: 'calm', focusLevel: 'high', goal: 'Team presentation', completed: true },
-  { date: '2024-01-12', mood: 'clear', focusLevel: 'high', goal: 'Code review', completed: false },
-  { date: '2024-01-11', mood: 'anxious', focusLevel: 'low', goal: 'Bug fixes', completed: true },
-  { date: '2024-01-10', mood: 'clear', focusLevel: 'medium', goal: 'Planning session', completed: true },
-  { date: '2024-01-09', mood: 'foggy', focusLevel: 'low', goal: 'Research task', completed: false },
-  { date: '2024-01-08', mood: 'calm', focusLevel: 'high', goal: 'Deep work', completed: true },
-];
-
 export const MoodHistoryScreen = ({ navigation }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [moodHistory, setMoodHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    loadMoodHistory();
+  }, [selectedPeriod]);
+
+  const loadMoodHistory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get different limits based on period
+      const limit = selectedPeriod === 'week' ? 7 : selectedPeriod === 'month' ? 30 : 90;
+
+      const response = await moodAPI.getCheckins(limit);
+
+      if (response.success) {
+        // Transform backend data to match expected format
+        const transformedData = response.data.map(checkin => ({
+          date: new Date(checkin.created_at).toISOString().split('T')[0],
+          mood: checkin.mood,
+          focusLevel: checkin.focus_level,
+          goal: checkin.daily_goal || 'No goal set',
+          completed: true, // We can add completion tracking later
+          emoji_rating: checkin.emoji_rating,
+        }));
+
+        setMoodHistory(transformedData);
+      } else {
+        setError('Failed to load mood history');
+      }
+    } catch (err) {
+      console.error('Error loading mood history:', err);
+      setError('Unable to load mood history');
+      setMoodHistory([]); // Show empty state
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Calculate mood distribution
-  const moodCounts = MOOD_HISTORY.reduce((acc, entry) => {
+  const moodCounts = moodHistory.reduce((acc, entry) => {
     acc[entry.mood] = (acc[entry.mood] || 0) + 1;
     return acc;
   }, {});
 
-  const totalEntries = MOOD_HISTORY.length;
-  const mostCommonMood = Object.keys(moodCounts).reduce((a, b) =>
-    moodCounts[a] > moodCounts[b] ? a : b
-  );
+  const totalEntries = moodHistory.length;
+  const mostCommonMood = totalEntries > 0
+    ? Object.keys(moodCounts).reduce((a, b) =>
+        moodCounts[a] > moodCounts[b] ? a : b
+      )
+    : 'clear';
 
   // Calculate focus level distribution
-  const focusCounts = MOOD_HISTORY.reduce((acc, entry) => {
+  const focusCounts = moodHistory.reduce((acc, entry) => {
     acc[entry.focusLevel] = (acc[entry.focusLevel] || 0) + 1;
     return acc;
   }, {});
 
   // Calculate goal completion rate
-  const completedGoals = MOOD_HISTORY.filter((e) => e.completed).length;
-  const completionRate = Math.round((completedGoals / totalEntries) * 100);
+  const completedGoals = moodHistory.filter((e) => e.completed).length;
+  const completionRate = totalEntries > 0 ? Math.round((completedGoals / totalEntries) * 100) : 0;
+
+  // Calculate current streak (consecutive days)
+  const calculateStreak = () => {
+    if (moodHistory.length === 0) return 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let streak = 0;
+    const sortedHistory = [...moodHistory].sort((a, b) =>
+      new Date(b.date) - new Date(a.date)
+    );
+
+    for (let i = 0; i < sortedHistory.length; i++) {
+      const checkDate = new Date(sortedHistory[i].date);
+      checkDate.setHours(0, 0, 0, 0);
+
+      const daysDiff = Math.floor((today - checkDate) / (1000 * 60 * 60 * 24));
+
+      if (daysDiff === i) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  };
+
+  const currentStreak = calculateStreak();
 
   const renderCalendar = () => {
     const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    // Create a map of dates to mood data
+    const moodMap = {};
+    moodHistory.forEach(entry => {
+      moodMap[entry.date] = entry;
+    });
+
+    // Get first day of month and number of days
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
     return (
       <View style={styles.calendar}>
@@ -73,14 +149,16 @@ export const MoodHistoryScreen = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Calendar grid (simplified) */}
+        {/* Calendar grid */}
         <View style={styles.calendarGrid}>
           {[...Array(35)].map((_, index) => {
-            const dayIndex = index % 7;
-            const weekIndex = Math.floor(index / 7);
-            const isToday = index === 15;
-            const hasData = index >= 7 && index <= 22;
-            const moodForDay = hasData ? MOOD_HISTORY[index % MOOD_HISTORY.length] : null;
+            const dayNumber = index - firstDay + 1;
+            const isValidDay = dayNumber > 0 && dayNumber <= daysInMonth;
+            const dateStr = isValidDay
+              ? `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`
+              : null;
+            const isToday = dateStr === today.toISOString().split('T')[0];
+            const moodForDay = dateStr ? moodMap[dateStr] : null;
 
             return (
               <TouchableOpacity
@@ -89,13 +167,18 @@ export const MoodHistoryScreen = ({ navigation }) => {
                   styles.calendarCell,
                   isToday && styles.calendarCellToday,
                 ]}
-                activeOpacity={hasData ? 0.7 : 1}
+                activeOpacity={moodForDay ? 0.7 : 1}
+                disabled={!isValidDay}
               >
-                <Text style={styles.calendarCellDate}>{index - 6}</Text>
-                {moodForDay && (
-                  <Text style={styles.calendarCellEmoji}>
-                    {MOOD_DATA[moodForDay.mood].emoji}
-                  </Text>
+                {isValidDay && (
+                  <>
+                    <Text style={styles.calendarCellDate}>{dayNumber}</Text>
+                    {moodForDay && (
+                      <Text style={styles.calendarCellEmoji}>
+                        {MOOD_DATA[moodForDay.mood]?.emoji || '😌'}
+                      </Text>
+                    )}
+                  </>
                 )}
               </TouchableOpacity>
             );
@@ -175,7 +258,7 @@ export const MoodHistoryScreen = ({ navigation }) => {
             <View style={styles.statCard}>
               <Text style={styles.statEmoji}>🔥</Text>
               <Text style={styles.statLabel}>Current Streak</Text>
-              <Text style={styles.statValue}>7 days</Text>
+              <Text style={styles.statValue}>{currentStreak} {currentStreak === 1 ? 'day' : 'days'}</Text>
             </View>
           </View>
         </View>
@@ -246,16 +329,31 @@ export const MoodHistoryScreen = ({ navigation }) => {
 
         {/* Calendar View */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>January 2024</Text>
+          <Text style={styles.sectionTitle}>
+            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </Text>
           {renderCalendar()}
         </View>
 
         {/* Recent Check-ins */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Check-ins</Text>
-          <View style={styles.historyList}>
-            {MOOD_HISTORY.slice(0, 5).map((entry, index) => (
-              <View key={index} style={styles.historyCard}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.alpha} />
+            </View>
+          ) : moodHistory.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateEmoji}>😌</Text>
+              <Text style={styles.emptyStateText}>No mood check-ins yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Start tracking your mood to see your history here
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.historyList}>
+              {moodHistory.slice(0, 5).map((entry, index) => (
+                <View key={index} style={styles.historyCard}>
                 <View style={styles.historyLeft}>
                   <Text style={styles.historyEmoji}>
                     {MOOD_DATA[entry.mood].emoji}
@@ -287,7 +385,8 @@ export const MoodHistoryScreen = ({ navigation }) => {
                 </View>
               </View>
             ))}
-          </View>
+            </View>
+          )}
         </View>
       </ScrollView>
     </LinearGradient>
@@ -559,6 +658,36 @@ const styles = StyleSheet.create({
   completedIcon: {
     fontSize: 20,
     color: theme.colors.alpha,
+  },
+  loadingContainer: {
+    paddingVertical: theme.spacing.xl * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyState: {
+    paddingVertical: theme.spacing.xl * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  emptyStateEmoji: {
+    fontSize: 64,
+    marginBottom: theme.spacing.md,
+  },
+  emptyStateText: {
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  emptyStateSubtext: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: theme.spacing.xl,
   },
 });
 

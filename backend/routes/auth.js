@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
-const { generateAccessToken, generateRefreshToken } = require('../middleware/auth');
+const { generateAccessToken, generateRefreshToken, authenticateToken } = require('../middleware/auth');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 
 const router = express.Router();
@@ -13,7 +13,8 @@ router.post('/register',
   [
     body('email').isEmail().normalizeEmail(),
     body('password').isLength({ min: 6 }),
-    body('name').optional().trim().isLength({ min: 1 })
+    body('name').optional().trim().isLength({ min: 1 }),
+    body('subscriptionType').optional().isIn(['free', 'premium']).withMessage('Invalid subscription type')
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -24,37 +25,65 @@ router.post('/register',
       });
     }
 
-    const { email, password, name } = req.body;
+    const { email, password, name, subscriptionType = 'free' } = req.body;
 
     try {
-      // Check if user already exists
+      // Check if user already exists with this email (active account)
       const existingUser = await db.query(
-        'SELECT id FROM users WHERE email = $1',
+        'SELECT id, is_deleted FROM users WHERE email = $1 AND is_deleted = FALSE',
         [email]
       );
 
       if (existingUser.rows.length > 0) {
+        // Active account exists with this email
         return res.status(409).json({
           success: false,
           message: 'User already exists with this email'
         });
       }
 
+      // Check if there's a previous deleted account with this email (stored in original_email)
+      const previousDeletedAccount = await db.query(
+        'SELECT id, deleted_at FROM users WHERE original_email = $1 AND is_deleted = TRUE ORDER BY deleted_at DESC LIMIT 1',
+        [email]
+      );
+
       // Hash password
       const passwordHash = await bcrypt.hash(password, 10);
 
-      // Create user
+      // Create new fresh account
       const result = await db.query(
-        'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name, created_at',
-        [email, passwordHash, name || null]
+        `INSERT INTO users (email, password_hash, name, subscription_status, previous_account_id)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, email, name, subscription_status, created_at`,
+        [
+          email,
+          passwordHash,
+          name || null,
+          subscriptionType,
+          previousDeletedAccount.rows.length > 0 ? previousDeletedAccount.rows[0].id : null
+        ]
       );
 
       const user = result.rows[0];
 
-      // Create user profile
+      // Log analytics info if this is a returning user
+      if (previousDeletedAccount.rows.length > 0) {
+        const previousAccount = previousDeletedAccount.rows[0];
+        const daysSinceDeletion = Math.floor((Date.now() - new Date(previousAccount.deleted_at).getTime()) / (1000 * 60 * 60 * 24));
+        console.log(`🔄 Returning user! New account ${user.id} created for ${email}. Previous account ${previousAccount.id} was deleted ${daysSinceDeletion} days ago.`);
+      }
+
+      // Log subscription history
       await db.query(
-        'INSERT INTO user_profiles (user_id, preferences) VALUES ($1, $2)',
-        [user.id, JSON.stringify({})]
+        'INSERT INTO subscription_history (user_id, previous_status, new_status, reason) VALUES ($1, $2, $3, $4)',
+        [user.id, null, subscriptionType, 'Initial registration']
+      );
+
+      // Create user profile with coaching defaults
+      await db.query(
+        'INSERT INTO user_profiles (user_id, preferences, students_coached, courses_helped_complete, is_available_as_coach) VALUES ($1, $2, $3, $4, $5)',
+        [user.id, JSON.stringify({}), 0, 0, true]
       );
 
       // Generate access and refresh tokens
@@ -78,6 +107,7 @@ router.post('/register',
             id: user.id,
             email: user.email,
             name: user.name,
+            subscription_status: user.subscription_status,
             created_at: user.created_at
           },
           accessToken,
@@ -114,7 +144,7 @@ router.post('/login',
     try {
       // Get user
       const result = await db.query(
-        'SELECT id, email, password_hash, name FROM users WHERE email = $1',
+        'SELECT id, email, password_hash, name, is_deleted, deleted_at FROM users WHERE email = $1',
         [email]
       );
 
@@ -126,6 +156,15 @@ router.post('/login',
       }
 
       const user = result.rows[0];
+
+      // Check if account is deleted
+      if (user.is_deleted) {
+        return res.status(403).json({
+          success: false,
+          message: 'This account has been deleted. Please contact support if you believe this is an error.',
+          deleted_at: user.deleted_at
+        });
+      }
 
       // Verify password
       const validPassword = await bcrypt.compare(password, user.password_hash);
@@ -441,5 +480,201 @@ router.post('/logout',
     }
   }
 );
+
+// Switch subscription type (free <-> premium, both $0 for testing)
+router.post('/switch-subscription',
+  authenticateToken,
+  [
+    body('subscriptionType').isIn(['free', 'premium']).withMessage('Invalid subscription type')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { subscriptionType } = req.body;
+    const userId = req.user.userId;
+
+    try {
+      // Get current subscription status
+      const userResult = await db.query(
+        'SELECT subscription_status FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const currentStatus = userResult.rows[0].subscription_status;
+
+      if (currentStatus === subscriptionType) {
+        return res.status(400).json({
+          success: false,
+          message: `Already on ${subscriptionType} plan`
+        });
+      }
+
+      // Update subscription status
+      await db.query(
+        'UPDATE users SET subscription_status = $1, updated_at = NOW() WHERE id = $2',
+        [subscriptionType, userId]
+      );
+
+      // Log the change (trigger will handle this automatically, but we can add reason)
+      await db.query(
+        'UPDATE subscription_history SET reason = $1 WHERE user_id = $2 AND new_status = $3 AND changed_at = (SELECT MAX(changed_at) FROM subscription_history WHERE user_id = $2)',
+        [`User switched from ${currentStatus} to ${subscriptionType}`, userId, subscriptionType]
+      );
+
+      res.json({
+        success: true,
+        message: `Successfully switched to ${subscriptionType} plan`,
+        data: {
+          previousStatus: currentStatus,
+          newStatus: subscriptionType
+        }
+      });
+    } catch (error) {
+      console.error('Subscription switch error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error switching subscription'
+      });
+    }
+  }
+);
+
+// Soft delete account
+router.post('/delete-account',
+  authenticateToken,
+  [
+    body('reason').optional().trim(),
+    body('password').notEmpty().withMessage('Password is required for account deletion')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const userId = req.user.userId;
+    const { reason, password } = req.body;
+
+    try {
+      // Get user's current data
+      const userResult = await db.query(
+        'SELECT email, password_hash, is_deleted FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const user = userResult.rows[0];
+
+      // Check if account is already deleted
+      if (user.is_deleted) {
+        return res.status(400).json({
+          success: false,
+          message: 'Account is already deleted'
+        });
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
+      if (!isValidPassword) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid password'
+        });
+      }
+
+      // Create unique signature for the deleted email
+      const timestamp = Date.now();
+      const deletedEmail = `${user.email}__deleted_${timestamp}_${userId}`;
+
+      // Soft delete the account and modify email to allow re-registration
+      await db.query(
+        `UPDATE users
+         SET is_deleted = TRUE,
+             deleted_at = CURRENT_TIMESTAMP,
+             deletion_reason = $1,
+             original_email = $2,
+             email = $3,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4`,
+        [reason || 'User requested account deletion', user.email, deletedEmail, userId]
+      );
+
+      // Invalidate all refresh tokens for this user
+      await db.query(
+        'DELETE FROM refresh_tokens WHERE user_id = $1',
+        [userId]
+      );
+
+      console.log(`Account soft deleted for user ${userId} (${user.email} -> ${deletedEmail})`);
+
+      res.json({
+        success: true,
+        message: 'Your account has been deleted successfully. We\'re sorry to see you go.'
+      });
+    } catch (error) {
+      console.error('Delete account error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error deleting account. Please try again.'
+      });
+    }
+  }
+);
+
+// Save FCM token for push notifications
+router.post('/fcm-token', authenticateToken, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    const userId = req.user.userId;
+
+    if (!fcmToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'FCM token is required'
+      });
+    }
+
+    // Update user's FCM token
+    await db.query(
+      'UPDATE users SET fcm_token = $1, updated_at = NOW() WHERE id = $2',
+      [fcmToken, userId]
+    );
+
+    console.log(`✅ FCM token saved for user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'FCM token saved successfully'
+    });
+  } catch (error) {
+    console.error('Save FCM token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error saving FCM token'
+    });
+  }
+});
 
 module.exports = router;

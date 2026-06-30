@@ -20,7 +20,12 @@ export default function Login() {
     const result = await login(username, password);
 
     if (result.success) {
-      navigate('/');
+      // Redirect based on role
+      if (result.role === 'professional_coach') {
+        navigate('/coach');
+      } else {
+        navigate('/');
+      }
     } else {
       setError(result.message);
     }
@@ -89,10 +94,6 @@ export default function Login() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-
-        <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#6b7280', textAlign: 'center' }}>
-          Default: Username: <strong>admin</strong> / Password: <strong>admin123</strong>
-        </p>
       </div>
     </div>
   );

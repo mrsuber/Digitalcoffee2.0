@@ -205,4 +205,46 @@ router.get('/user/history', async (req, res) => {
   }
 });
 
+// Get recent sessions for focus launcher (last 5 with progress)
+router.get('/user/recent-sessions', async (req, res) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await db.query(
+      `SELECT
+        ls.id,
+        ls.audio_content_id,
+        ac.title,
+        ac.type,
+        ac.brainwave_type,
+        ac.duration_seconds as total_duration,
+        ls.duration_listened_seconds as listened_duration,
+        ls.completed,
+        ls.started_at,
+        CASE
+          WHEN ac.duration_seconds > 0
+          THEN LEAST(1.0, ls.duration_listened_seconds::float / ac.duration_seconds::float)
+          ELSE 0
+        END as progress
+       FROM listening_sessions ls
+       JOIN audio_content ac ON ls.audio_content_id = ac.id
+       WHERE ls.user_id = $1
+       ORDER BY ls.started_at DESC
+       LIMIT 5`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Get recent sessions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching recent sessions'
+    });
+  }
+});
+
 module.exports = router;

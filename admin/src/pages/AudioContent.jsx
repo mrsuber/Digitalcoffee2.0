@@ -25,7 +25,7 @@ export default function AudioContent() {
       setLoading(true);
       const response = await adminAudioAPI.getAudioContent();
       if (response.success) {
-        setAudioContent(response.data);
+        setAudioContent(response.data.audioContent || []);
       }
     } catch (error) {
       console.error('Error loading audio content:', error);

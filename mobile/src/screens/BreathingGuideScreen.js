@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
@@ -157,10 +158,7 @@ export const BreathingGuideScreen = ({ navigation, route }) => {
   };
 
   return (
-    <LinearGradient
-      colors={['#0a1628', '#1a2640', '#0a1628']}
-      style={styles.container}
-    >
+    <View style={[styles.container, { backgroundColor: '#020a1e' }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -178,32 +176,44 @@ export const BreathingGuideScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Breathing Animation Circle */}
+      {/* Breathing Animation */}
       <View style={styles.breathingContainer}>
         <Animated.View
           style={[
-            styles.breathingCircleOuter,
+            styles.breathingSquareWrapper,
             {
               transform: [{ scale: scaleAnim }],
-              opacity: opacityAnim,
             },
           ]}
         >
-          <LinearGradient
-            colors={['#3b82f6', '#60a5fa', '#0ea5e9']}
-            style={styles.breathingCircleGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
-        </Animated.View>
+          {/* Outer glow effect */}
+          <Animated.View style={[styles.glowEffect, { opacity: opacityAnim }]}>
+            <LinearGradient
+              colors={['#4c1d95', '#5b21b6', '#7c3aed', '#0d9488', '#14b8a6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.glowGradient}
+            />
+          </Animated.View>
 
-        {/* Instruction Text */}
-        <View style={styles.instructionContainer}>
-          <Text style={styles.phaseText}>{currentPhase.name}</Text>
-          <Text style={styles.durationText}>
-            {currentPhase.duration - secondsInPhase} sec
-          </Text>
-        </View>
+          {/* Animated border gradient */}
+          <Animated.View style={[styles.borderGradient, { opacity: opacityAnim }]}>
+            <LinearGradient
+              colors={['#7c3aed', '#0d9488', '#14b8a6', '#7c3aed']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientBorder}
+            >
+              <View style={styles.breathingSquare}>
+                {/* Phase instruction */}
+                <Text style={styles.phaseText}>{currentPhase.name}</Text>
+                <Text style={styles.durationText}>
+                  {currentPhase.duration - secondsInPhase} sec
+                </Text>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </Animated.View>
       </View>
 
       {/* Round Counter */}
@@ -275,7 +285,7 @@ export const BreathingGuideScreen = ({ navigation, route }) => {
           ))}
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 };
 
@@ -331,35 +341,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: theme.spacing.xl,
   },
-  breathingCircleOuter: {
-    width: width * 0.6,
-    height: width * 0.6,
+  breathingSquareWrapper: {
+    width: width * 0.7,
+    height: width * 0.7,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
-  breathingCircleGradient: {
+  glowEffect: {
+    position: 'absolute',
+    width: '110%',
+    height: '110%',
+    borderRadius: 40,
+  },
+  glowGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: width * 0.3,
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 30,
-    elevation: 10,
+    borderRadius: 40,
+    opacity: 0.3,
   },
-  instructionContainer: {
-    position: 'absolute',
+  borderGradient: {
+    width: '100%',
+    height: '100%',
+  },
+  gradientBorder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+    padding: 3,
+  },
+  breathingSquare: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 29,
+    backgroundColor: 'rgba(2, 10, 30, 0.8)',
+    justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   phaseText: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: 'bold',
     color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
+    letterSpacing: 2,
   },
   durationText: {
-    fontSize: theme.fonts.sizes.lg,
+    fontSize: 24,
     color: theme.colors.textSecondary,
+    fontWeight: '300',
   },
   roundContainer: {
     paddingHorizontal: theme.spacing.xl,

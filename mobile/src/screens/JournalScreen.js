@@ -127,7 +127,10 @@ export const JournalScreen = ({ navigation }) => {
           <View style={styles.headerLeft}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => {
+                // Always navigate to Courses screen (Library default)
+                navigation.navigate('Courses');
+              }}
             >
               <Text style={styles.backButtonText}>←</Text>
             </TouchableOpacity>

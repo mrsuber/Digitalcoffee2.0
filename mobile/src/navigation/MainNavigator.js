@@ -2,24 +2,13 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Text } from 'react-native';
 import { theme } from '../utils/theme';
+import HomeNavigator from './HomeNavigator';
 import FocusNavigator from './FocusNavigator';
 import LibraryNavigator from './LibraryNavigator';
 import ProfileNavigator from './ProfileNavigator';
 
 // Import screens with error handling
-let DashboardScreen, ProgressScreen;
-
-try {
-  DashboardScreen = require('../screens/DashboardScreen').default;
-} catch (e) {
-  console.error('Error loading DashboardScreen:', e);
-  DashboardScreen = () => (
-    <View style={errorStyles.container}>
-      <Text style={errorStyles.text}>DashboardScreen Error</Text>
-      <Text style={errorStyles.detail}>{e.message}</Text>
-    </View>
-  );
-}
+let ProgressScreen;
 
 try {
   ProgressScreen = require('../screens/ProgressScreen').default;
@@ -66,7 +55,7 @@ const MainNavigator = () => {
     >
       <Tab.Screen
         name="Home"
-        component={DashboardScreen}
+        component={HomeNavigator}
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ focused, color }) => (

@@ -1,23 +1,77 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
+import { progressAPI } from '../services/api';
 
 export const ProfileScreen = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadUserStats();
+  }, []);
+
+  // Refresh user data when screen comes into focus (e.g., after upgrading to premium)
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshUser();
+    }, [])
+  );
+
+  const loadUserStats = async () => {
+    try {
+      setLoading(true);
+      const response = await progressAPI.getOverview(30);
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading user stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
     navigation.replace('Auth');
   };
 
+  // Video calling menu items (conditional based on subscription)
+  const videoCallMenuItems = user?.subscription_type === 'premium' || user?.subscription_type === 'professional'
+    ? [
+        { id: 'bookings', icon: '📹', title: 'My Video Sessions', subtitle: 'View your call bookings', screen: 'MyBookings' },
+        { id: 'bookCall', icon: '📞', title: 'Book Video Call', subtitle: 'Schedule a session with a coach', screen: 'BookCall' },
+      ]
+    : [];
+
+  // Coach-only menu items
+  const coachMenuItems = user?.is_coach
+    ? [
+        { id: 'availability', icon: '🗓️', title: 'My Availability', subtitle: 'Set your coaching hours', screen: 'AvailabilitySetup' },
+      ]
+    : [];
+
   const menuItems = [
+    ...videoCallMenuItems,
+    ...coachMenuItems,
     { id: 'account', icon: '👤', title: 'Account Details', subtitle: 'Manage your profile', screen: 'Account' },
     { id: 'mood', icon: '😌', title: 'Mood History', subtitle: 'View your mood trends', screen: 'MoodHistory' },
     { id: 'settings', icon: '⚙️', title: 'Settings', subtitle: 'App preferences', screen: 'Settings' },
-    { id: 'help', icon: '❓', title: 'Help & Support', subtitle: 'Get help or send feedback' },
+    { id: 'help', icon: '❓', title: 'Help & Support', subtitle: 'Get help or send feedback', screen: 'Help' },
   ];
+
+  const formatTotalTime = (minutes) => {
+    if (!minutes) return '0h';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
 
   return (
     <LinearGradient
@@ -46,21 +100,52 @@ export const ProfileScreen = ({ navigation }) => {
 
         {/* Stats */}
         <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>24</Text>
-            <Text style={styles.statLabel}>Sessions</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>7</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>8h</Text>
-            <Text style={styles.statLabel}>Total Time</Text>
-          </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.alpha} />
+            </View>
+          ) : (
+            <>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats?.total_sessions || 0}</Text>
+                <Text style={styles.statLabel}>Sessions</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats?.streak_days || 0}</Text>
+                <Text style={styles.statLabel}>Day Streak</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{formatTotalTime(stats?.total_minutes || 0)}</Text>
+                <Text style={styles.statLabel}>Total Time</Text>
+              </View>
+            </>
+          )}
         </View>
+
+        {/* Premium Upgrade Button */}
+        {user?.subscription_status !== 'premium' && (
+          <TouchableOpacity
+            style={styles.premiumButton}
+            onPress={() => navigation.navigate('Subscription')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#D4AF37', '#C19A2E']}
+              style={styles.premiumGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.premiumIcon}>👑</Text>
+              <View style={styles.premiumTextContainer}>
+                <Text style={styles.premiumTitle}>Upgrade to Premium</Text>
+                <Text style={styles.premiumSubtitle}>Unlock all features & content</Text>
+              </View>
+              <Text style={styles.premiumArrow}>→</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -135,6 +220,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    minHeight: 80,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statItem: {
     flex: 1,
@@ -154,6 +245,44 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: theme.colors.border,
     marginHorizontal: theme.spacing.sm,
+  },
+  premiumButton: {
+    marginBottom: theme.spacing.xl,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  premiumGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  premiumIcon: {
+    fontSize: 32,
+  },
+  premiumTextContainer: {
+    flex: 1,
+  },
+  premiumTitle: {
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  premiumSubtitle: {
+    fontSize: theme.fonts.sizes.sm,
+    color: '#2A2A2A',
+    fontWeight: '500',
+  },
+  premiumArrow: {
+    fontSize: 24,
+    color: '#1A1A1A',
+    fontWeight: '600',
   },
   menuSection: {
     backgroundColor: theme.colors.cardBackground,

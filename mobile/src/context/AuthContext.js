@@ -1,18 +1,89 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '../services/api';
+import api from '../services/api';
+import { notificationService } from '../services/firebase';
+import socketService from '../services/socketService';
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
+export const AuthProvider = ({ children, navigationRef }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const socketListenersSetup = useRef(false);
 
   // Load user from storage on app start
   useEffect(() => {
     loadUser();
   }, []);
+
+  // Connect socket when user is authenticated
+  useEffect(() => {
+    console.log('🔍 AuthContext socket effect triggered:', {
+      isAuthenticated,
+      userId: user?.id,
+      userName: user?.name
+    });
+
+    if (isAuthenticated && user?.id) {
+      console.log('🔌 Initializing socket connection for user:', user.id);
+      socketService.connect(user.id);
+
+      // Setup socket listeners once, after connection
+      if (!socketListenersSetup.current && navigationRef) {
+        setupSocketListeners();
+        socketListenersSetup.current = true;
+      }
+    } else if (!isAuthenticated) {
+      console.log('🔌 Disconnecting socket - user not authenticated');
+      socketService.disconnect();
+      socketListenersSetup.current = false;
+    } else {
+      console.log('⚠️ Socket not connecting - missing auth or user ID');
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (!isAuthenticated) {
+        console.log('🧹 Cleanup: Disconnecting socket');
+        socketService.disconnect();
+      }
+    };
+  }, [isAuthenticated, user?.id]);
+
+  // Setup socket event listeners for incoming calls
+  const setupSocketListeners = () => {
+    console.log('🔧 Setting up socket listeners with navigation');
+
+    // Listen for incoming instant calls
+    socketService.addEventListener('incoming-instant-call', (data) => {
+      console.log('📞 [AuthContext] Incoming instant call received:', data);
+
+      if (navigationRef?.current) {
+        console.log('📱 Navigating to IncomingCall screen');
+        navigationRef.current.navigate('IncomingCall', {
+          sessionId: data.sessionId,
+          coachName: data.coachName,
+          roomId: data.roomId,
+        });
+      } else {
+        console.error('❌ Navigation ref not available!');
+      }
+    });
+
+    // Listen for call cancelled events
+    socketService.addEventListener('call-cancelled', (data) => {
+      console.log('❌ [AuthContext] Call cancelled:', data);
+
+      if (navigationRef?.current) {
+        // Go back if on IncomingCall screen
+        navigationRef.current.goBack();
+      }
+    });
+
+    console.log('✅ Socket listeners configured');
+  };
 
   const loadUser = async () => {
     try {
@@ -45,6 +116,18 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         setIsAuthenticated(true);
 
+        // Register for push notifications and save FCM token
+        try {
+          const fcmToken = await notificationService.registerForPushNotifications();
+          if (fcmToken) {
+            await api.saveFCMToken(fcmToken);
+            console.log('✅ FCM token registered and saved after login');
+          }
+        } catch (fcmError) {
+          console.log('⚠️  FCM token registration skipped:', fcmError.message);
+          // Continue even if FCM fails - not critical for login
+        }
+
         return { success: true };
       }
 
@@ -58,9 +141,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (email, password, name) => {
+  const register = async (email, password, name, subscriptionType = 'free') => {
     try {
-      const response = await authAPI.register(email, password, name);
+      const response = await authAPI.register(email, password, name, subscriptionType);
 
       if (response.success) {
         const { user: userData, accessToken, refreshToken } = response.data;
@@ -71,6 +154,18 @@ export const AuthProvider = ({ children }) => {
 
         setUser(userData);
         setIsAuthenticated(true);
+
+        // Register for push notifications and save FCM token
+        try {
+          const fcmToken = await notificationService.registerForPushNotifications();
+          if (fcmToken) {
+            await api.saveFCMToken(fcmToken);
+            console.log('✅ FCM token registered and saved');
+          }
+        } catch (fcmError) {
+          console.log('⚠️  FCM token registration skipped:', fcmError.message);
+          // Continue even if FCM fails - not critical for registration
+        }
 
         return { success: true };
       }
@@ -89,6 +184,9 @@ export const AuthProvider = ({ children }) => {
     try {
       // Get refresh token before clearing storage
       const refreshToken = await AsyncStorage.getItem('refreshToken');
+
+      // Disconnect socket before logout
+      socketService.disconnect();
 
       // Call logout API to revoke refresh token
       if (refreshToken) {
@@ -112,6 +210,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      // Reload user data from storage (it will be updated by API interceptor after successful requests)
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (error) {
+      console.error('Refresh user error:', error);
+    }
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -119,6 +229,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

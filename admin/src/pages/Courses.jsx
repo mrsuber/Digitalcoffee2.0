@@ -24,7 +24,7 @@ export default function Courses() {
       setLoading(true);
       const response = await adminCoursesAPI.getCourses();
       if (response.success) {
-        setCourses(response.data);
+        setCourses(response.data.courses || []);
       }
     } catch (error) {
       console.error('Error loading courses:', error);

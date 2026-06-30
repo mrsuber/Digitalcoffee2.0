@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
+import { audioAPI } from '../services/api';
 
 const SESSION_TYPES = [
   {
@@ -17,7 +20,8 @@ const SESSION_TYPES = [
     title: 'Audio Session',
     description: 'Guided talks, binaural beats & affirmations',
     gradient: ['#4c1d95', '#7c3aed'],
-    screen: 'AudioPlayer',
+    screen: 'Library',
+    params: { screen: 'AudioLibrary' },
   },
   {
     id: 'timer',
@@ -37,38 +41,67 @@ const SESSION_TYPES = [
   },
 ];
 
-const RECENT_SESSIONS = [
-  {
-    id: '1',
-    title: 'Rewire Your Focus',
-    type: 'Guided Talk',
-    duration: '15 min',
-    progress: 0.7,
-  },
-  {
-    id: '2',
-    title: 'Deep Work Session',
-    type: 'Focus Timer',
-    duration: '25 min',
-    progress: 1.0,
-  },
-  {
-    id: '3',
-    title: 'Alpha Waves - 8.6 Hz',
-    type: 'Binaural Beats',
-    duration: '20 min',
-    progress: 0.4,
-  },
-];
-
 export const FocusLauncherScreen = ({ navigation }) => {
   const [selectedType, setSelectedType] = useState(null);
+  const [recentSessions, setRecentSessions] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  useEffect(() => {
+    loadRecentSessions();
+  }, []);
+
+  const loadRecentSessions = async () => {
+    try {
+      setLoadingRecent(true);
+      const response = await audioAPI.getRecentSessions();
+      if (response.success) {
+        // Transform the data to match the expected format
+        const transformedSessions = response.data.map(session => ({
+          id: session.id.toString(), // Use listening session ID (unique per session)
+          audioContentId: session.audio_content_id.toString(), // Store audio content ID for navigation
+          title: session.title,
+          type: getTypeLabel(session.type, session.brainwave_type),
+          duration: formatDuration(session.total_duration),
+          progress: parseFloat(session.progress) || 0,
+        }));
+        setRecentSessions(transformedSessions);
+      }
+    } catch (error) {
+      console.error('Error loading recent sessions:', error);
+      // Silent fail - just show empty recent sessions
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  const getTypeLabel = (type, brainwaveType) => {
+    if (type === 'binaural' && brainwaveType) {
+      return `${brainwaveType.charAt(0).toUpperCase() + brainwaveType.slice(1)} Waves`;
+    }
+    const typeMap = {
+      meditation: 'Guided Meditation',
+      affirmation: 'Affirmations',
+      binaural: 'Binaural Beats',
+      music: 'Focus Music',
+    };
+    return typeMap[type] || type;
+  };
+
+  const formatDuration = (seconds) => {
+    if (!seconds) return '0 min';
+    const minutes = Math.round(seconds / 60);
+    return `${minutes} min`;
+  };
 
   const handleSessionTypePress = (sessionType) => {
     setSelectedType(sessionType.id);
     // Navigate to the specific screen after a short delay for visual feedback
     setTimeout(() => {
-      navigation.navigate(sessionType.screen);
+      if (sessionType.params) {
+        navigation.navigate(sessionType.screen, sessionType.params);
+      } else {
+        navigation.navigate(sessionType.screen);
+      }
       setSelectedType(null);
     }, 200);
   };
@@ -78,7 +111,41 @@ export const FocusLauncherScreen = ({ navigation }) => {
     if (session.type === 'Focus Timer') {
       navigation.navigate('FocusTimer', { preset: session });
     } else {
-      navigation.navigate('AudioPlayer', { audioId: session.id });
+      navigation.navigate('AudioPlayer', { audioId: session.audioContentId });
+    }
+  };
+
+  const handleQuickAudioStart = async (type, brainwaveType = null) => {
+    try {
+      // Fetch audio content based on type
+      const response = await audioAPI.getAudioContent(type, brainwaveType);
+
+      if (response.success && response.data && response.data.length > 0) {
+        // Get the first audio of this type
+        const audio = response.data[0];
+        navigation.navigate('AudioPlayer', { audioId: audio.id });
+      } else {
+        Alert.alert('No Audio Found', `No ${type} audio available. Please check the audio library.`);
+      }
+    } catch (error) {
+      console.error('Error loading audio:', error);
+
+      // Check if it's an authentication error
+      if (error.response?.status === 403 || error.response?.status === 401) {
+        Alert.alert(
+          'Session Expired',
+          'Your session has expired. Please log out and log back in to continue.',
+          [
+            {
+              text: 'Go to Profile',
+              onPress: () => navigation.navigate('Profile')
+            },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to load audio. Please try again.');
+      }
     }
   };
 
@@ -138,34 +205,47 @@ export const FocusLauncherScreen = ({ navigation }) => {
         <View style={styles.recentSection}>
           <Text style={styles.sectionTitle}>Recent Sessions</Text>
           <View style={styles.recentSessionsContainer}>
-            {RECENT_SESSIONS.map((session) => (
-              <TouchableOpacity
-                key={session.id}
-                style={styles.recentSessionCard}
-                onPress={() => handleRecentSessionPress(session)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.recentSessionInfo}>
-                  <Text style={styles.recentSessionTitle}>{session.title}</Text>
-                  <View style={styles.recentSessionMeta}>
-                    <Text style={styles.recentSessionType}>{session.type}</Text>
-                    <Text style={styles.recentSessionDot}>•</Text>
-                    <Text style={styles.recentSessionDuration}>
-                      {session.duration}
-                    </Text>
+            {loadingRecent ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={theme.colors.alpha} size="small" />
+                <Text style={styles.loadingText}>Loading recent sessions...</Text>
+              </View>
+            ) : recentSessions.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyEmoji}>🎧</Text>
+                <Text style={styles.emptyText}>No recent sessions yet</Text>
+                <Text style={styles.emptySubtext}>Start a session to see it here</Text>
+              </View>
+            ) : (
+              recentSessions.map((session) => (
+                <TouchableOpacity
+                  key={session.id}
+                  style={styles.recentSessionCard}
+                  onPress={() => handleRecentSessionPress(session)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.recentSessionInfo}>
+                    <Text style={styles.recentSessionTitle}>{session.title}</Text>
+                    <View style={styles.recentSessionMeta}>
+                      <Text style={styles.recentSessionType}>{session.type}</Text>
+                      <Text style={styles.recentSessionDot}>•</Text>
+                      <Text style={styles.recentSessionDuration}>
+                        {session.duration}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                {/* Progress Bar */}
-                <View style={styles.progressBarContainer}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${session.progress * 100}%` },
-                    ]}
-                  />
-                </View>
-              </TouchableOpacity>
-            ))}
+                  {/* Progress Bar */}
+                  <View style={styles.progressBarContainer}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${session.progress * 100}%` },
+                      ]}
+                    />
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </View>
 
@@ -189,14 +269,14 @@ export const FocusLauncherScreen = ({ navigation }) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => navigation.navigate('AudioPlayer', { filter: 'alpha' })}
+              onPress={() => handleQuickAudioStart('binaural', 'alpha')}
             >
               <Text style={styles.quickActionIcon}>🧠</Text>
               <Text style={styles.quickActionText}>Alpha{'\n'}Waves</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => navigation.navigate('AudioPlayer', { filter: 'meditation' })}
+              onPress={() => handleQuickAudioStart('meditation')}
             >
               <Text style={styles.quickActionIcon}>🎵</Text>
               <Text style={styles.quickActionText}>Guided{'\n'}Meditation</Text>
@@ -287,6 +367,36 @@ const styles = StyleSheet.create({
   },
   recentSessionsContainer: {
     gap: theme.spacing.sm,
+  },
+  loadingContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.textSecondary,
+    fontSize: theme.fonts.sizes.sm,
+  },
+  emptyContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyEmoji: {
+    fontSize: 48,
+    marginBottom: theme.spacing.sm,
+  },
+  emptyText: {
+    color: theme.colors.text,
+    fontSize: theme.fonts.sizes.md,
+    fontWeight: '600',
+    marginBottom: theme.spacing.xs,
+  },
+  emptySubtext: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.fonts.sizes.sm,
+    textAlign: 'center',
   },
   recentSessionCard: {
     backgroundColor: theme.colors.cardBackground,

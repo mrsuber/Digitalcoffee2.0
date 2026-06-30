@@ -195,4 +195,110 @@ router.get('/insights', async (req, res) => {
   }
 });
 
+// Get comprehensive stats for progress screen
+router.get('/stats', async (req, res) => {
+  const userId = req.user.userId;
+  const days = parseInt(req.query.days) || 7; // default to week
+
+  try {
+    // Get total sessions and minutes
+    const totalsResult = await db.query(
+      `SELECT
+        COALESCE(SUM(sessions_completed), 0) as total_sessions,
+        COALESCE(SUM(total_minutes), 0) as total_minutes,
+        COALESCE(AVG(mood_rating), 0) as average_mood,
+        COALESCE(AVG(focus_percentage), 0) as focus_score
+       FROM user_progress
+       WHERE user_id = $1
+       AND date >= CURRENT_DATE - INTERVAL '${days} days'`,
+      [userId]
+    );
+
+    // Get current and longest streak
+    const streakResult = await db.query(
+      `SELECT MAX(streak_days) as longest_streak
+       FROM user_progress
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    const currentStreakResult = await db.query(
+      `SELECT streak_days as current_streak
+       FROM user_progress
+       WHERE user_id = $1 AND date = CURRENT_DATE`,
+      [userId]
+    );
+
+    // Get courses stats
+    const coursesResult = await db.query(
+      `SELECT
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL) as courses_completed,
+        COUNT(*) FILTER (WHERE is_active = true AND completed_at IS NULL) as courses_in_progress
+       FROM user_courses
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    // Get weekly activity (last 7 days)
+    const weeklyResult = await db.query(
+      `SELECT
+        TO_CHAR(d.date, 'Dy') as day,
+        d.date,
+        COALESCE(up.sessions_completed, 0) as sessions,
+        COALESCE(up.total_minutes, 0) as minutes
+       FROM generate_series(
+         CURRENT_DATE - INTERVAL '6 days',
+         CURRENT_DATE,
+         '1 day'::interval
+       ) AS d(date)
+       LEFT JOIN user_progress up ON up.date = d.date::date AND up.user_id = $1
+       ORDER BY d.date`,
+      [userId]
+    );
+
+    // Get mood trends (last 7 days)
+    const moodResult = await db.query(
+      `SELECT
+        TO_CHAR(d.date, 'MM/DD') as date,
+        COALESCE(up.mood_rating, 0) as mood
+       FROM generate_series(
+         CURRENT_DATE - INTERVAL '6 days',
+         CURRENT_DATE,
+         '1 day'::interval
+       ) AS d(date)
+       LEFT JOIN user_progress up ON up.date = d.date::date AND up.user_id = $1
+       ORDER BY d.date`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        totals: {
+          total_sessions: parseInt(totalsResult.rows[0].total_sessions) || 0,
+          total_minutes: parseInt(totalsResult.rows[0].total_minutes) || 0,
+          average_mood: parseFloat(totalsResult.rows[0].average_mood) || 0,
+          focus_score: Math.round(parseFloat(totalsResult.rows[0].focus_score)) || 0,
+        },
+        streaks: {
+          current_streak: parseInt(currentStreakResult.rows[0]?.current_streak) || 0,
+          longest_streak: parseInt(streakResult.rows[0]?.longest_streak) || 0,
+        },
+        courses: {
+          courses_completed: parseInt(coursesResult.rows[0]?.courses_completed) || 0,
+          courses_in_progress: parseInt(coursesResult.rows[0]?.courses_in_progress) || 0,
+        },
+        weekly_activity: weeklyResult.rows,
+        mood_trends: moodResult.rows,
+      }
+    });
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching stats'
+    });
+  }
+});
+
 module.exports = router;

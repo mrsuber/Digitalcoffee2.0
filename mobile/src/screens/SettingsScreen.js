@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,37 +6,196 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
+import { useAuth } from '../context/AuthContext';
 
 export const SettingsScreen = ({ navigation }) => {
+  const { logout, user } = useAuth();
   const [skipMoodCheck, setSkipMoodCheck] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [dailyReminder, setDailyReminder] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
   const [autoPlay, setAutoPlay] = useState(false);
   const [downloadOverWifi, setDownloadOverWifi] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
+
+  // Helper function to get user-specific storage key
+  const getUserKey = (key) => {
+    return user?.id ? `${key}_user_${user.id}` : key;
+  };
+
+  // Load settings from AsyncStorage on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadSettings();
+    }
+  }, [user?.id]);
+
+  const loadSettings = async () => {
+    try {
+      const [
+        skipMoodCheckValue,
+        soundEffectsValue,
+        autoPlayValue,
+        downloadOverWifiValue,
+      ] = await AsyncStorage.multiGet([
+        getUserKey('skipMoodCheck'),
+        getUserKey('soundEffects'),
+        getUserKey('autoPlay'),
+        getUserKey('downloadOverWifi'),
+      ]);
+
+      if (skipMoodCheckValue[1] !== null) {
+        setSkipMoodCheck(skipMoodCheckValue[1] === 'true');
+      }
+      if (soundEffectsValue[1] !== null) {
+        setSoundEffects(soundEffectsValue[1] === 'true');
+      }
+      if (autoPlayValue[1] !== null) {
+        setAutoPlay(autoPlayValue[1] === 'true');
+      }
+      if (downloadOverWifiValue[1] !== null) {
+        setDownloadOverWifi(downloadOverWifiValue[1] === 'true');
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
 
   const handleSkipMoodCheckToggle = async (value) => {
     setSkipMoodCheck(value);
     try {
-      await AsyncStorage.setItem('skipMoodCheck', value.toString());
+      await AsyncStorage.setItem(getUserKey('skipMoodCheck'), value.toString());
     } catch (error) {
       console.error('Error saving skip mood check preference:', error);
     }
   };
 
-  const handleClearCache = () => {
-    // TODO: Implement cache clearing
-    console.log('Clear cache');
+  const handleSoundEffectsToggle = async (value) => {
+    setSoundEffects(value);
+    try {
+      await AsyncStorage.setItem(getUserKey('soundEffects'), value.toString());
+    } catch (error) {
+      console.error('Error saving sound effects preference:', error);
+    }
+  };
+
+  const handleAutoPlayToggle = async (value) => {
+    setAutoPlay(value);
+    try {
+      await AsyncStorage.setItem(getUserKey('autoPlay'), value.toString());
+    } catch (error) {
+      console.error('Error saving auto play preference:', error);
+    }
+  };
+
+  const handleDownloadOverWifiToggle = async (value) => {
+    setDownloadOverWifi(value);
+    try {
+      await AsyncStorage.setItem(getUserKey('downloadOverWifi'), value.toString());
+    } catch (error) {
+      console.error('Error saving download over wifi preference:', error);
+    }
+  };
+
+  const handleClearCache = async () => {
+    Alert.alert(
+      'Clear Cache',
+      'Are you sure you want to clear all cached data? This will free up storage space but may slow down the app temporarily.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear specific cache items but keep authentication
+              const keysToRemove = [
+                'audioCache',
+                'courseCache',
+                'progressCache',
+                'imageCache',
+              ];
+
+              await AsyncStorage.multiRemove(keysToRemove);
+
+              Alert.alert('Success', 'Cache cleared successfully');
+            } catch (error) {
+              console.error('Error clearing cache:', error);
+              Alert.alert('Error', 'Failed to clear cache');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleResetSettings = () => {
-    // TODO: Show confirmation dialog
-    console.log('Reset settings');
+    Alert.alert(
+      'Reset Settings',
+      'Are you sure you want to reset all settings to default values? This cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Reset to default values
+              setSkipMoodCheck(false);
+              setSoundEffects(true);
+              setAutoPlay(false);
+              setDownloadOverWifi(true);
+
+              // Persist default values
+              await AsyncStorage.multiSet([
+                ['skipMoodCheck', 'false'],
+                ['soundEffects', 'true'],
+                ['autoPlay', 'false'],
+                ['downloadOverWifi', 'true'],
+              ]);
+
+              Alert.alert('Success', 'Settings reset to defaults');
+            } catch (error) {
+              console.error('Error resetting settings:', error);
+              Alert.alert('Error', 'Failed to reset settings');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderSettingItem = (title, subtitle, value, onValueChange, icon) => (
@@ -58,29 +217,37 @@ export const SettingsScreen = ({ navigation }) => {
     </View>
   );
 
-  const renderActionItem = (title, subtitle, onPress, icon, destructive = false) => (
-    <TouchableOpacity
-      style={styles.actionItem}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.settingLeft}>
-        <Text style={styles.settingIcon}>{icon}</Text>
-        <View style={styles.settingInfo}>
-          <Text
-            style={[
-              styles.settingTitle,
-              destructive && styles.settingTitleDestructive,
-            ]}
-          >
-            {title}
-          </Text>
-          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+  const renderActionItem = (title, subtitle, onPress, icon, destructive = false) => {
+    const content = (
+      <View style={styles.actionItem}>
+        <View style={styles.settingLeft}>
+          <Text style={styles.settingIcon}>{icon}</Text>
+          <View style={styles.settingInfo}>
+            <Text
+              style={[
+                styles.settingTitle,
+                destructive && styles.settingTitleDestructive,
+              ]}
+            >
+              {title}
+            </Text>
+            {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+          </View>
         </View>
+        {onPress && <Text style={styles.actionArrow}>→</Text>}
       </View>
-      <Text style={styles.actionArrow}>→</Text>
-    </TouchableOpacity>
-  );
+    );
+
+    if (!onPress) {
+      return content;
+    }
+
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {content}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <LinearGradient
@@ -119,46 +286,18 @@ export const SettingsScreen = ({ navigation }) => {
               '😌'
             )}
             {renderSettingItem(
-              'Dark Mode',
-              'Use dark theme throughout the app',
-              darkMode,
-              setDarkMode,
-              '🌙'
-            )}
-            {renderSettingItem(
               'Sound Effects',
               'Play sounds for interactions',
               soundEffects,
-              setSoundEffects,
+              handleSoundEffectsToggle,
               '🔊'
             )}
             {renderSettingItem(
               'Auto-Play Next',
               'Automatically play next session',
               autoPlay,
-              setAutoPlay,
+              handleAutoPlayToggle,
               '⏭️'
-            )}
-          </View>
-        </View>
-
-        {/* Notifications */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          <View style={styles.settingsGroup}>
-            {renderSettingItem(
-              'Push Notifications',
-              'Receive notifications from the app',
-              notifications,
-              setNotifications,
-              '🔔'
-            )}
-            {renderSettingItem(
-              'Daily Reminder',
-              'Remind me to practice daily',
-              dailyReminder,
-              setDailyReminder,
-              '⏰'
             )}
           </View>
         </View>
@@ -167,24 +306,12 @@ export const SettingsScreen = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Audio & Downloads</Text>
           <View style={styles.settingsGroup}>
-            {renderActionItem(
-              'Audio Quality',
-              'High',
-              () => console.log('Audio quality'),
-              '🎵'
-            )}
             {renderSettingItem(
               'Download Over WiFi Only',
               'Save mobile data',
               downloadOverWifi,
-              setDownloadOverWifi,
+              handleDownloadOverWifiToggle,
               '📶'
-            )}
-            {renderActionItem(
-              'Downloaded Content',
-              'Manage offline audio',
-              () => console.log('Downloaded content'),
-              '⬇️'
             )}
           </View>
         </View>
@@ -199,24 +326,6 @@ export const SettingsScreen = ({ navigation }) => {
               () => navigation.navigate('Account'),
               '👤'
             )}
-            {renderActionItem(
-              'Subscription',
-              'Premium',
-              () => console.log('Subscription'),
-              '💎'
-            )}
-            {renderActionItem(
-              'Privacy Policy',
-              'View our privacy policy',
-              () => console.log('Privacy policy'),
-              '🔒'
-            )}
-            {renderActionItem(
-              'Terms of Service',
-              'View terms and conditions',
-              () => console.log('Terms'),
-              '📄'
-            )}
           </View>
         </View>
 
@@ -229,12 +338,6 @@ export const SettingsScreen = ({ navigation }) => {
               'Free up storage space',
               handleClearCache,
               '🗑️'
-            )}
-            {renderActionItem(
-              'Export Data',
-              'Download your data',
-              () => console.log('Export data'),
-              '📤'
             )}
           </View>
         </View>
@@ -260,20 +363,8 @@ export const SettingsScreen = ({ navigation }) => {
             {renderActionItem(
               'App Version',
               'v2.0.0 (Build 42)',
-              () => console.log('Version'),
+              null,
               'ℹ️'
-            )}
-            {renderActionItem(
-              'Help & Support',
-              'Get help or send feedback',
-              () => console.log('Help'),
-              '❓'
-            )}
-            {renderActionItem(
-              'Rate Digital Coffee',
-              'Share your experience',
-              () => console.log('Rate app'),
-              '⭐'
             )}
           </View>
         </View>
@@ -283,7 +374,8 @@ export const SettingsScreen = ({ navigation }) => {
           <View style={styles.dangerZone}>
             <TouchableOpacity
               style={styles.dangerButton}
-              onPress={() => console.log('Logout')}
+              onPress={handleLogout}
+              activeOpacity={0.7}
             >
               <Text style={styles.dangerButtonText}>Logout</Text>
             </TouchableOpacity>

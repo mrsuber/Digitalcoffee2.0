@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,21 +7,113 @@ import {
   ScrollView,
   TextInput,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
+import { useAuth } from '../context/AuthContext';
+import { progressAPI, coachingAPI, authAPI, professionalCoachesAPI, subscriptionAPI } from '../services/api';
+import { useAlert } from '../components/CustomAlert';
 
 export const AccountScreen = ({ navigation }) => {
-  const [name, setName] = useState('Sarah Chen');
-  const [email, setEmail] = useState('sarah.chen@email.com');
+  const { user } = useAuth();
+  const { showAlert, AlertComponent } = useAlert();
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [subscriptionStatus, setSubscriptionStatus] = useState('free');
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [switchingSubscription, setSwitchingSubscription] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [coachingData, setCoachingData] = useState(null);
+  const [loadingCoaching, setLoadingCoaching] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletionReason, setDeletionReason] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+    }
+    loadSubscriptionStatus();
+    loadUserStats();
+    loadCoachingData();
+  }, [user]);
+
+  const loadSubscriptionStatus = async () => {
+    try {
+      setLoadingSubscription(true);
+      // Use subscription status directly from user context or call subscription API
+      if (user?.subscription_status) {
+        setSubscriptionStatus(user.subscription_status);
+      } else {
+        // Fallback to API call if not in context
+        const response = await subscriptionAPI.getStatus();
+        if (response.success && response.data) {
+          setSubscriptionStatus(response.data.subscription_status || 'free');
+        } else {
+          setSubscriptionStatus('free');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading subscription status:', error);
+      // On error, fallback to free
+      setSubscriptionStatus('free');
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  const loadUserStats = async () => {
+    try {
+      setLoadingStats(true);
+      const response = await progressAPI.getOverview(30);
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading user stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const loadCoachingData = async () => {
+    try {
+      setLoadingCoaching(true);
+      const [coachRes, studentsRes] = await Promise.all([
+        coachingAPI.getMyCoach().catch(() => ({ success: true, data: null })),
+        coachingAPI.getMyStudents().catch(() => ({ success: true, data: [] })),
+      ]);
+
+      const data = {
+        myCoach: coachRes.success ? coachRes.data : null,
+        students: studentsRes.success ? studentsRes.data || [] : [],
+      };
+      setCoachingData(data);
+    } catch (error) {
+      console.error('Error loading coaching data:', error);
+    } finally {
+      setLoadingCoaching(false);
+    }
+  };
+
+  const formatTotalTime = (minutes) => {
+    if (!minutes) return '0h';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
 
   const handleSaveName = () => {
     setIsEditingName(false);
@@ -45,10 +137,120 @@ export const AccountScreen = ({ navigation }) => {
     setConfirmPassword('');
   };
 
-  const handleDeleteAccount = () => {
-    // TODO: Call API to delete account
-    setShowDeleteAccountModal(false);
-    console.log('Account deleted');
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      showAlert({
+        type: 'error',
+        title: 'Password Required',
+        message: 'Please enter your password to confirm account deletion.',
+      });
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+
+      const response = await authAPI.deleteAccount(deletePassword, deletionReason);
+
+      if (response.success) {
+        setShowDeleteAccountModal(false);
+        setDeletePassword('');
+        setDeletionReason('');
+
+        showAlert({
+          type: 'success',
+          title: 'Account Deleted',
+          message: response.message || 'Your account has been deleted successfully.',
+          buttons: [
+            {
+              text: 'OK',
+              onPress: async () => {
+                // Clear all local data and logout
+                await AsyncStorage.clear();
+                // Navigation will be handled by AuthContext
+              },
+            },
+          ],
+        });
+      } else {
+        showAlert({
+          type: 'error',
+          title: 'Deletion Failed',
+          message: response.message || 'Failed to delete account. Please try again.',
+        });
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+
+      let errorMessage = 'An error occurred while deleting your account.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: errorMessage,
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleSwitchSubscription = async (newType) => {
+    if (newType === subscriptionStatus) {
+      return;
+    }
+
+    const typeLabel = newType === 'premium' ? 'Premium' : 'Free';
+
+    showAlert({
+      type: 'warning',
+      title: `Switch to ${typeLabel}?`,
+      message: `Are you sure you want to switch to the ${typeLabel} plan? (Both are $0 for testing)`,
+      buttons: [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Switch',
+          onPress: async () => {
+            try {
+              setSwitchingSubscription(true);
+              const response = await authAPI.switchSubscription(newType);
+
+              if (response.success) {
+                // Reload subscription status from backend to ensure it's in sync
+                await loadSubscriptionStatus();
+                showAlert({
+                  type: 'success',
+                  title: 'Success!',
+                  message: `Successfully switched to ${typeLabel} plan`,
+                });
+              } else {
+                showAlert({
+                  type: 'error',
+                  title: 'Switch Failed',
+                  message: response.message || 'Failed to switch subscription',
+                });
+              }
+            } catch (error) {
+              console.error('Error switching subscription:', error);
+              showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to switch subscription. Please try again.',
+              });
+            } finally {
+              setSwitchingSubscription(false);
+            }
+          },
+        },
+      ],
+    });
   };
 
   return (
@@ -60,6 +262,9 @@ export const AccountScreen = ({ navigation }) => {
       ]}
       style={styles.container}
     >
+      {/* Custom Alert */}
+      <AlertComponent />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -194,55 +399,180 @@ export const AccountScreen = ({ navigation }) => {
 
         {/* Subscription */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subscription</Text>
-          <View style={styles.subscriptionCard}>
-            <LinearGradient
-              colors={['#4c1d95', '#7c3aed']}
-              style={styles.subscriptionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.subscriptionContent}>
-                <Text style={styles.subscriptionBadge}>💎 PREMIUM</Text>
-                <Text style={styles.subscriptionTitle}>Premium Member</Text>
-                <Text style={styles.subscriptionDescription}>
-                  Unlimited access to all content
-                </Text>
-                <View style={styles.subscriptionMeta}>
-                  <Text style={styles.subscriptionMetaText}>
-                    Renews on Feb 15, 2024
-                  </Text>
-                  <Text style={styles.subscriptionMetaText}>$9.99/month</Text>
-                </View>
+          <Text style={styles.sectionTitle}>Subscription Plan</Text>
+
+          {loadingSubscription ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.alpha} />
+              <Text style={styles.loadingText}>Loading subscription...</Text>
+            </View>
+          ) : (
+            <>
+              {/* Current Plan Card */}
+              <View style={styles.subscriptionCard}>
+                <LinearGradient
+                  colors={subscriptionStatus === 'premium' ? ['#4c1d95', '#7c3aed'] : ['#374151', '#4b5563']}
+                  style={styles.subscriptionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.subscriptionContent}>
+                    <Text style={styles.subscriptionBadge}>
+                      {subscriptionStatus === 'premium' ? '💎 PREMIUM' : '🎁 FREE'}
+                    </Text>
+                    <Text style={styles.subscriptionTitle}>
+                      {subscriptionStatus === 'premium' ? 'Premium Member' : 'Free Member'}
+                    </Text>
+                    <Text style={styles.subscriptionDescription}>
+                      {subscriptionStatus === 'premium'
+                        ? 'Full access to all premium features'
+                        : 'Basic features and audio library'}
+                    </Text>
+                    <View style={styles.subscriptionMeta}>
+                      <Text style={styles.subscriptionMetaText}>$0/month (Testing)</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
               </View>
-              <TouchableOpacity style={styles.manageButton}>
-                <Text style={styles.manageButtonText}>Manage</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
+
+              {/* Switch Plan Section */}
+              <View style={styles.switchPlanContainer}>
+                <Text style={styles.switchPlanLabel}>
+                  {subscriptionStatus === 'premium'
+                    ? 'Want to downgrade to Free?'
+                    : 'Want to upgrade to Premium?'}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.switchPlanButton, switchingSubscription && styles.switchPlanButtonDisabled]}
+                  onPress={() => handleSwitchSubscription(subscriptionStatus === 'premium' ? 'free' : 'premium')}
+                  disabled={switchingSubscription}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={subscriptionStatus === 'premium' ? ['#6b7280', '#9ca3af'] : ['#4c1d95', '#7c3aed']}
+                    style={styles.switchPlanGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.switchPlanButtonText}>
+                      {switchingSubscription
+                        ? 'Switching...'
+                        : subscriptionStatus === 'premium'
+                        ? '⬇️ Switch to Free'
+                        : '⬆️ Upgrade to Premium'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Statistics */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Stats</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>24</Text>
-              <Text style={styles.statLabel}>Sessions</Text>
+          {loadingStats ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.alpha} />
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>8h 42m</Text>
-              <Text style={styles.statLabel}>Total Time</Text>
+          ) : (
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats?.total_sessions || 0}</Text>
+                <Text style={styles.statLabel}>Sessions</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{formatTotalTime(stats?.total_minutes || 0)}</Text>
+                <Text style={styles.statLabel}>Total Time</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats?.streak_days || 0}</Text>
+                <Text style={styles.statLabel}>Day Streak</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats?.courses_enrolled || 0}</Text>
+                <Text style={styles.statLabel}>Courses</Text>
+              </View>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>7</Text>
-              <Text style={styles.statLabel}>Day Streak</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>3</Text>
-              <Text style={styles.statLabel}>Courses</Text>
-            </View>
+          )}
+        </View>
+
+        {/* Coaching Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Coaching</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Library', { screen: 'CoachingHub' })}
+            >
+              <Text style={styles.viewAllText}>View Hub →</Text>
+            </TouchableOpacity>
           </View>
+          {loadingCoaching ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.alpha} />
+            </View>
+          ) : (
+            <View style={styles.coachingContent}>
+              {coachingData?.myCoach && (
+                <TouchableOpacity
+                  style={styles.coachingCard}
+                  onPress={() => navigation.navigate('Library', {
+                    screen: 'StudentDetail',
+                    params: {
+                      studentId: user?.id,
+                      isViewingAsStudent: true,
+                      coach: coachingData.myCoach
+                    }
+                  })}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={['rgba(59, 130, 246, 0.2)', 'rgba(59, 130, 246, 0.05)']}
+                    style={styles.coachingCardInner}
+                  >
+                    <Text style={styles.coachingIcon}>🎓</Text>
+                    <View style={styles.coachingInfo}>
+                      <Text style={styles.coachingLabel}>Your Coach</Text>
+                      <Text style={styles.coachingName}>{coachingData.myCoach.coach_name}</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+              {coachingData?.students && coachingData.students.length > 0 && (
+                <TouchableOpacity
+                  style={styles.coachingCard}
+                  onPress={() => navigation.navigate('Library', { screen: 'MyStudents' })}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={['rgba(147, 51, 234, 0.2)', 'rgba(147, 51, 234, 0.05)']}
+                    style={styles.coachingCardInner}
+                  >
+                    <Text style={styles.coachingIcon}>👥</Text>
+                    <View style={styles.coachingInfo}>
+                      <Text style={styles.coachingLabel}>Your Students</Text>
+                      <Text style={styles.coachingName}>
+                        {coachingData.students.length} {coachingData.students.length === 1 ? 'Student' : 'Students'}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+              {!coachingData?.myCoach && (!coachingData?.students || coachingData.students.length === 0) && (
+                <View style={styles.coachingEmpty}>
+                  <Text style={styles.coachingEmptyIcon}>🎓</Text>
+                  <Text style={styles.coachingEmptyText}>No coaching connections yet</Text>
+                  <TouchableOpacity
+                    style={styles.exploreCoachingButton}
+                    onPress={() => navigation.navigate('Library', { screen: 'CoachingHub' })}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.exploreCoachingText}>Explore Coaching</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Danger Zone */}
@@ -334,31 +664,94 @@ export const AccountScreen = ({ navigation }) => {
         visible={showDeleteAccountModal}
         animationType="fade"
         transparent
-        onRequestClose={() => setShowDeleteAccountModal(false)}
+        onRequestClose={() => {
+          if (!deleteLoading) {
+            setShowDeleteAccountModal(false);
+            setDeletePassword('');
+            setDeletionReason('');
+          }
+        }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.deleteModalContent}>
-            <Text style={styles.deleteModalIcon}>⚠️</Text>
-            <Text style={styles.deleteModalTitle}>Delete Account?</Text>
-            <Text style={styles.deleteModalText}>
-              Are you sure you want to delete your account? This action cannot be
-              undone and all your data will be permanently deleted.
-            </Text>
-            <View style={styles.deleteModalActions}>
-              <TouchableOpacity
-                style={styles.deleteModalCancelButton}
-                onPress={() => setShowDeleteAccountModal(false)}
-              >
-                <Text style={styles.deleteModalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.deleteModalDeleteButton}
-                onPress={handleDeleteAccount}
-              >
-                <Text style={styles.deleteModalDeleteText}>Delete</Text>
-              </TouchableOpacity>
+          <ScrollView
+            contentContainerStyle={styles.deleteModalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.deleteModalContent}>
+              <Text style={styles.deleteModalIcon}>⚠️</Text>
+              <Text style={styles.deleteModalTitle}>Delete Account?</Text>
+              <Text style={styles.deleteModalText}>
+                Are you sure you want to delete your account? This action cannot be
+                undone and all your data will be permanently deleted.
+              </Text>
+
+              {/* Password Input */}
+              <View style={styles.deleteInputContainer}>
+                <Text style={styles.deleteInputLabel}>
+                  Enter your password to confirm
+                </Text>
+                <TextInput
+                  style={styles.deleteInput}
+                  placeholder="Password"
+                  placeholderTextColor="#999"
+                  value={deletePassword}
+                  onChangeText={setDeletePassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  editable={!deleteLoading}
+                />
+              </View>
+
+              {/* Reason Input (Optional) */}
+              <View style={styles.deleteInputContainer}>
+                <Text style={styles.deleteInputLabel}>
+                  Reason for leaving (optional)
+                </Text>
+                <TextInput
+                  style={[styles.deleteInput, styles.deleteInputMultiline]}
+                  placeholder="Help us improve by sharing why you're leaving..."
+                  placeholderTextColor="#999"
+                  value={deletionReason}
+                  onChangeText={setDeletionReason}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  editable={!deleteLoading}
+                />
+              </View>
+
+              <View style={styles.deleteModalActions}>
+                <TouchableOpacity
+                  style={[
+                    styles.deleteModalCancelButton,
+                    deleteLoading && styles.deleteModalButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    setShowDeleteAccountModal(false);
+                    setDeletePassword('');
+                    setDeletionReason('');
+                  }}
+                  disabled={deleteLoading}
+                >
+                  <Text style={styles.deleteModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.deleteModalDeleteButton,
+                    deleteLoading && styles.deleteModalButtonDisabled,
+                  ]}
+                  onPress={handleDeleteAccount}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.deleteModalDeleteText}>Delete</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </LinearGradient>
@@ -562,10 +955,45 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: '600',
   },
+  switchPlanContainer: {
+    marginTop: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  switchPlanLabel: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  switchPlanButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+  },
+  switchPlanButtonDisabled: {
+    opacity: 0.6,
+  },
+  switchPlanGradient: {
+    padding: theme.spacing.md,
+    alignItems: 'center',
+  },
+  switchPlanButtonText: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
+  },
+  loadingContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.textSecondary,
+    fontSize: theme.fonts.sizes.sm,
   },
   statCard: {
     backgroundColor: theme.colors.cardBackground,
@@ -735,6 +1163,109 @@ const styles = StyleSheet.create({
     fontSize: theme.fonts.sizes.md,
     color: theme.colors.text,
     fontWeight: 'bold',
+  },
+  deleteModalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+  },
+  deleteInputContainer: {
+    marginTop: theme.spacing.md,
+    width: '100%',
+  },
+  deleteInputLabel: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+    fontWeight: '600',
+  },
+  deleteInput: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+  },
+  deleteInputMultiline: {
+    minHeight: 80,
+    paddingTop: theme.spacing.md,
+  },
+  deleteModalButtonDisabled: {
+    opacity: 0.5,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  viewAllText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.alpha,
+    fontWeight: '600',
+  },
+  coachingContent: {
+    gap: theme.spacing.sm,
+  },
+  coachingCard: {
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+  },
+  coachingCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+    borderRadius: theme.borderRadius.lg,
+  },
+  coachingIcon: {
+    fontSize: 32,
+    marginRight: theme.spacing.md,
+  },
+  coachingInfo: {
+    flex: 1,
+  },
+  coachingLabel: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs / 2,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  coachingName: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
+  coachingEmpty: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+  },
+  coachingEmptyIcon: {
+    fontSize: 48,
+    marginBottom: theme.spacing.sm,
+  },
+  coachingEmptyText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  exploreCoachingButton: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+  },
+  exploreCoachingText: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.alpha,
+    fontWeight: '600',
   },
 });
 

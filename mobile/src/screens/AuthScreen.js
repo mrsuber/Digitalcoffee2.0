@@ -108,7 +108,8 @@ export const AuthScreen = ({ navigation }) => {
       if (isLogin) {
         result = await login(email, password);
       } else {
-        result = await register(email, password, name);
+        // Always register as free, users can upgrade later
+        result = await register(email, password, name, 'free');
       }
 
       if (result.success) {
@@ -453,6 +454,58 @@ const styles = StyleSheet.create({
   switchTextBold: {
     color: theme.colors.alpha,
     fontWeight: 'bold',
+  },
+  subscriptionContainer: {
+    marginVertical: theme.spacing.lg,
+  },
+  subscriptionLabel: {
+    fontSize: theme.fonts.sizes.sm,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  subscriptionOptions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    justifyContent: 'space-between',
+  },
+  subscriptionOption: {
+    flex: 1,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    alignItems: 'center',
+  },
+  subscriptionOptionSelected: {
+    borderColor: theme.colors.alpha,
+    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+  },
+  subscriptionEmoji: {
+    fontSize: 32,
+    marginBottom: theme.spacing.xs,
+  },
+  subscriptionTitle: {
+    fontSize: theme.fonts.sizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs / 2,
+  },
+  subscriptionTitleSelected: {
+    color: theme.colors.alpha,
+  },
+  subscriptionPrice: {
+    fontSize: theme.fonts.sizes.md,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.sm,
+    fontWeight: '600',
+  },
+  subscriptionFeature: {
+    fontSize: theme.fonts.sizes.xs,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs / 2,
   },
 });
 
