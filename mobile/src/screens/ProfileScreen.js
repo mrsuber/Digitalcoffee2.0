@@ -41,8 +41,22 @@ export const ProfileScreen = ({ navigation }) => {
     navigation.replace('Auth');
   };
 
+  // Debug: Log user subscription info
+  useEffect(() => {
+    console.log('User object:', user);
+    console.log('Subscription type:', user?.subscription_type);
+    console.log('Subscription status:', user?.subscription_status);
+  }, [user]);
+
   // Video calling menu items (conditional based on subscription)
-  const videoCallMenuItems = user?.subscription_type === 'premium' || user?.subscription_type === 'professional'
+  // Check both subscription_type and subscription_status for compatibility
+  const hasPremiumAccess =
+    user?.subscription_type === 'premium' ||
+    user?.subscription_type === 'professional' ||
+    user?.subscription_status === 'premium' ||
+    user?.subscription_status === 'professional';
+
+  const videoCallMenuItems = hasPremiumAccess
     ? [
         { id: 'bookings', icon: '📹', title: 'My Video Sessions', subtitle: 'View your call bookings', screen: 'MyBookings' },
         { id: 'bookCall', icon: '📞', title: 'Book Video Call', subtitle: 'Schedule a session with a coach', screen: 'BookCall' },
