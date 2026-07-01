@@ -26,6 +26,7 @@ export const BookCallScreen = ({ navigation, route }) => {
   const [selectedCoach, setSelectedCoach] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [availability, setAvailability] = useState([]);
+  const [coachWeeklyAvailability, setCoachWeeklyAvailability] = useState([]); // Days coach works (0-6)
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [bookingNotes, setBookingNotes] = useState('');
   const [loading, setLoading] = useState(true);
@@ -45,6 +46,12 @@ export const BookCallScreen = ({ navigation, route }) => {
       }
     }
   }, [initialCoachId, coaches]);
+
+  useEffect(() => {
+    if (selectedCoach) {
+      loadCoachWeeklyAvailability();
+    }
+  }, [selectedCoach]);
 
   useEffect(() => {
     if (selectedCoach && selectedDate) {
@@ -69,6 +76,21 @@ export const BookCallScreen = ({ navigation, route }) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCoachWeeklyAvailability = async () => {
+    try {
+      const response = await videoCallsAPI.getCoachWeeklySchedule(selectedCoach.id);
+
+      if (response.success) {
+        const availableDays = response.data || [];
+        setCoachWeeklyAvailability(availableDays);
+        console.log('Coach available on days:', availableDays);
+      }
+    } catch (error) {
+      console.error('Error loading weekly schedule:', error);
+      setCoachWeeklyAvailability([]);
     }
   };
 
@@ -192,6 +214,45 @@ export const BookCallScreen = ({ navigation, route }) => {
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 60); // 60 days ahead
     return maxDate.toISOString().split('T')[0];
+  };
+
+  // Generate marked dates with disabled days where coach has no availability
+  const getMarkedDates = () => {
+    const marked = {};
+
+    // Mark selected date
+    if (selectedDate) {
+      marked[selectedDate] = {
+        selected: true,
+        selectedColor: theme.colors.primary,
+      };
+    }
+
+    // Disable dates where coach has no availability
+    if (coachWeeklyAvailability.length > 0) {
+      const minDate = new Date();
+      minDate.setDate(minDate.getDate() + 2); // Start from 2 days ahead
+      const maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() + 60);
+
+      // Iterate through all dates in range
+      for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+        const dayOfWeek = d.getDay();
+        const dateString = d.toISOString().split('T')[0];
+
+        // If coach doesn't work on this day of week, disable it
+        if (!coachWeeklyAvailability.includes(dayOfWeek)) {
+          marked[dateString] = {
+            ...marked[dateString],
+            disabled: true,
+            disableTouchEvent: true,
+            textColor: '#666666',
+          };
+        }
+      }
+    }
+
+    return marked;
   };
 
   const renderStepIndicator = () => (
@@ -325,12 +386,7 @@ export const BookCallScreen = ({ navigation, route }) => {
         minDate={getMinDate()}
         maxDate={getMaxDate()}
         onDayPress={handleDateSelect}
-        markedDates={selectedDate ? {
-          [selectedDate]: {
-            selected: true,
-            selectedColor: theme.colors.primary
-          }
-        } : {}}
+        markedDates={getMarkedDates()}
         enableSwipeMonths={true}
         disableAllTouchEventsForDisabledDays={true}
       />

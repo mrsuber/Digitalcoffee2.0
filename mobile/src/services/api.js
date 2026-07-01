@@ -438,6 +438,9 @@ export const feedbackAPI = {
 // Video Calling endpoints (Premium feature)
 export const videoCallsAPI = {
   // Coach availability
+  getCoachWeeklySchedule: (coachId) =>
+    api.get(`/video-calls/coaches/${coachId}/weekly-schedule`),
+
   getCoachAvailability: (coachId, date) =>
     api.get(`/video-calls/coaches/${coachId}/availability${date ? `?date=${date}` : ''}`),
 

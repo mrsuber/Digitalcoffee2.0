@@ -48,6 +48,31 @@ const checkPremiumAccess = async (req, res, next) => {
 
 // ==================== COACH AVAILABILITY ====================
 
+// Get coach's weekly schedule (which days they work)
+router.get('/coaches/:coachId/weekly-schedule', checkPremiumAccess, async (req, res) => {
+  try {
+    const { coachId } = req.params;
+
+    const result = await db.query(
+      `SELECT DISTINCT day_of_week
+       FROM coach_availability
+       WHERE coach_id = $1 AND is_active = true
+       ORDER BY day_of_week`,
+      [coachId]
+    );
+
+    const availableDays = result.rows.map(row => row.day_of_week);
+
+    res.json({
+      success: true,
+      data: availableDays
+    });
+  } catch (error) {
+    console.error('Get weekly schedule error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching weekly schedule' });
+  }
+});
+
 // Get coach availability (for students booking)
 router.get('/coaches/:coachId/availability', checkPremiumAccess, async (req, res) => {
   try {
