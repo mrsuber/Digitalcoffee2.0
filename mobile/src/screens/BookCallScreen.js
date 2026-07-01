@@ -98,16 +98,20 @@ export const BookCallScreen = ({ navigation, route }) => {
   };
 
   const handleDateSelect = (date) => {
+    console.log('Date selected:', date.dateString);
+
     // Create date at noon to avoid timezone issues
     const selectedDateTime = new Date(date.dateString + 'T12:00:00');
     const now = new Date();
     const hoursDifference = (selectedDateTime - now) / (1000 * 60 * 60);
 
-    if (hoursDifference < 24) {
+    console.log('Hours difference:', hoursDifference);
+
+    if (hoursDifference < 48) { // 48 hours = 2 days for safety
       showAlert({
         type: 'warning',
-        title: 'Invalid Date',
-        message: 'Sessions must be booked at least 24 hours in advance. Please select a later date.',
+        title: 'Date Too Soon',
+        message: 'Sessions must be booked at least 24 hours in advance. Please select a date that is at least 2 days away.',
       });
       return;
     }
@@ -288,7 +292,11 @@ export const BookCallScreen = ({ navigation, route }) => {
 
   const renderDateSelection = () => (
     <View style={styles.stepContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={() => setStep(1)}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => setStep(1)}
+        activeOpacity={0.7}
+      >
         <Text style={styles.backButtonText}>← Back to Coaches</Text>
       </TouchableOpacity>
 
@@ -310,7 +318,7 @@ export const BookCallScreen = ({ navigation, route }) => {
           selectedDayTextColor: '#FFFFFF',
           todayTextColor: theme.colors.primary,
           dayTextColor: theme.colors.text,
-          textDisabledColor: '#9CA3AF',
+          textDisabledColor: '#666666',
           monthTextColor: theme.colors.text,
           arrowColor: theme.colors.primary,
         }}
@@ -324,6 +332,7 @@ export const BookCallScreen = ({ navigation, route }) => {
           }
         } : {}}
         enableSwipeMonths={true}
+        disableAllTouchEventsForDisabledDays={true}
       />
     </View>
   );
@@ -614,14 +623,17 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: 16,
-    padding: 12,
-    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(124, 58, 237, 0.2)',
     borderRadius: 8,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.4)',
   },
   backButtonText: {
-    fontSize: 16,
-    color: theme.colors.primary,
+    fontSize: 17,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   coachList: {
