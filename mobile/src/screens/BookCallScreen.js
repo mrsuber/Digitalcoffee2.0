@@ -173,11 +173,20 @@ export const BookCallScreen = ({ navigation, route }) => {
       );
 
       if (response.success) {
+        // Reset form
+        setSelectedDate(null);
+        setSelectedTimeSlot(null);
+        setBookingNotes('');
+        setStep(1);
+
         showAlert({
           type: 'success',
-          title: 'Booking Confirmed',
-          message: `Your video session with ${selectedCoach.full_name} is confirmed for ${formatDateTime(scheduledAt)}`,
-          onConfirm: () => navigation.navigate('MyBookings'),
+          title: '✅ Booking Confirmed!',
+          message: `Your video session with ${selectedCoach.full_name} is confirmed!\n\nTap OK to view your bookings or visit Profile → My Video Sessions.`,
+          onConfirm: () => {
+            // Navigate to MyBookings
+            navigation.navigate('MyBookings');
+          },
         });
       } else {
         throw new Error(response.message || 'Booking failed');

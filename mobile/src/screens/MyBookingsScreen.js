@@ -37,8 +37,13 @@ export const MyBookingsScreen = ({ navigation }) => {
       const isUpcoming = activeTab === 'upcoming';
       const response = await videoCallsAPI.getMyBookings(null, isUpcoming);
 
+      console.log('Bookings response:', response);
+
       if (response.success) {
-        setBookings(response.data || []);
+        // Backend returns data: { bookings: [...] }
+        const bookingsList = response.data?.bookings || [];
+        console.log('Loaded bookings:', bookingsList.length);
+        setBookings(bookingsList);
       }
     } catch (error) {
       console.error('Error loading bookings:', error);
