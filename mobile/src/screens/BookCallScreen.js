@@ -144,6 +144,8 @@ export const BookCallScreen = ({ navigation, route }) => {
   };
 
   const handleTimeSlotSelect = (slot) => {
+    console.log('Selected time slot:', slot);
+    console.log('Selected date:', selectedDate);
     setSelectedTimeSlot(slot);
     setStep(4);
   };
@@ -193,14 +195,30 @@ export const BookCallScreen = ({ navigation, route }) => {
   };
 
   const formatDateTime = (datetime) => {
-    const date = new Date(datetime);
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    if (!datetime || datetime.includes('undefined') || datetime.includes('null')) {
+      return 'Please select date and time';
+    }
+
+    try {
+      const date = new Date(datetime);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+
+      return date.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error, datetime);
+      return 'Invalid date format';
+    }
   };
 
   const getMinDate = () => {
@@ -468,32 +486,62 @@ export const BookCallScreen = ({ navigation, route }) => {
     </View>
   );
 
-  const renderConfirmation = () => (
-    <View style={styles.stepContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={() => setStep(3)}>
-        <Text style={styles.backButtonText}>← Back to Time Selection</Text>
-      </TouchableOpacity>
+  const renderConfirmation = () => {
+    // Format date separately for better reliability
+    const getFormattedDate = () => {
+      if (!selectedDate) return 'No date selected';
 
-      <Text style={styles.stepTitle}>Confirm Your Booking</Text>
+      try {
+        const dateObj = new Date(selectedDate + 'T12:00:00');
+        return dateObj.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      } catch (error) {
+        return 'Invalid date';
+      }
+    };
 
-      <View style={styles.confirmationCard}>
-        <LinearGradient
-          colors={['rgba(124, 58, 237, 0.1)', 'rgba(76, 29, 149, 0.05)']}
-          style={styles.confirmationGradient}
+    const getFormattedTime = () => {
+      if (!selectedTimeSlot) return 'No time selected';
+      return `${selectedTimeSlot.start_time} - ${selectedTimeSlot.end_time}`;
+    };
+
+    return (
+      <View style={styles.stepContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setStep(3)}
+          activeOpacity={0.7}
         >
-          <View style={styles.confirmationSection}>
-            <Text style={styles.confirmationLabel}>Coach</Text>
-            <Text style={styles.confirmationValue}>{selectedCoach?.full_name}</Text>
-          </View>
+          <Text style={styles.backButtonText}>← Back to Time Selection</Text>
+        </TouchableOpacity>
 
-          <View style={styles.confirmationDivider} />
+        <Text style={styles.stepTitle}>Confirm Your Booking</Text>
 
-          <View style={styles.confirmationSection}>
-            <Text style={styles.confirmationLabel}>Date & Time</Text>
-            <Text style={styles.confirmationValue}>
-              {formatDateTime(`${selectedDate}T${selectedTimeSlot?.start_time}:00`)}
-            </Text>
-          </View>
+        <View style={styles.confirmationCard}>
+          <LinearGradient
+            colors={['rgba(124, 58, 237, 0.1)', 'rgba(76, 29, 149, 0.05)']}
+            style={styles.confirmationGradient}
+          >
+            <View style={styles.confirmationSection}>
+              <Text style={styles.confirmationLabel}>Coach</Text>
+              <Text style={styles.confirmationValue}>{selectedCoach?.full_name}</Text>
+            </View>
+
+            <View style={styles.confirmationDivider} />
+
+            <View style={styles.confirmationSection}>
+              <Text style={styles.confirmationLabel}>Date & Time</Text>
+              <Text style={styles.confirmationValue}>
+                {getFormattedDate()}
+              </Text>
+              <Text style={[styles.confirmationValue, { marginTop: 4 }]}>
+                {getFormattedTime()}
+              </Text>
+            </View>
 
           <View style={styles.confirmationDivider} />
 
@@ -548,6 +596,7 @@ export const BookCallScreen = ({ navigation, route }) => {
       </TouchableOpacity>
     </View>
   );
+  };
 
   if (loading) {
     return (
