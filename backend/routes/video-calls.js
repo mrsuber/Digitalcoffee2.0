@@ -52,44 +52,94 @@ const checkPremiumAccess = async (req, res, next) => {
 router.get('/coaches/:coachId/availability', checkPremiumAccess, async (req, res) => {
   try {
     const { coachId } = req.params;
-    const { date } = req.query; // Optional: specific date
+    const { date } = req.query; // Required: specific date (YYYY-MM-DD)
 
-    // Get regular weekly availability
+    if (!date) {
+      return res.status(400).json({ success: false, message: 'Date parameter is required' });
+    }
+
+    // Parse date at noon to avoid timezone issues with day-of-week calculation
+    const selectedDate = new Date(date + 'T12:00:00');
+    const dayOfWeek = selectedDate.getDay(); // 0=Sunday, 1=Monday, etc.
+
+    console.log(`📅 Availability request for coach ${coachId} on ${date} (day ${dayOfWeek})`);
+
+    // Get coach's weekly availability for this day
     const availability = await db.query(
-      `SELECT day_of_week, start_time, end_time
+      `SELECT start_time, end_time
        FROM coach_availability
-       WHERE coach_id = $1 AND is_active = true
-       ORDER BY day_of_week, start_time`,
-      [coachId]
+       WHERE coach_id = $1 AND day_of_week = $2 AND is_active = true
+       ORDER BY start_time`,
+      [coachId, dayOfWeek]
     );
 
-    // Get blocked slots
+    console.log(`📊 Found ${availability.rows.length} availability slots for day ${dayOfWeek}`);
+
+    if (availability.rows.length === 0) {
+      console.log(`⚠️  No availability set for coach ${coachId} on day ${dayOfWeek}`);
+      return res.json({ success: true, data: [] }); // No availability for this day
+    }
+
+    // Get blocked slots for this specific date
     const blocked = await db.query(
-      `SELECT blocked_date, start_time, end_time, reason
+      `SELECT start_time, end_time
        FROM coach_blocked_slots
-       WHERE coach_id = $1 AND blocked_date >= CURRENT_DATE
-       ORDER BY blocked_date, start_time`,
-      [coachId]
+       WHERE coach_id = $1 AND blocked_date = $2`,
+      [coachId, date]
     );
 
-    // Get existing bookings
+    // Get existing bookings for this date
     const bookings = await db.query(
-      `SELECT scheduled_at, duration_minutes
+      `SELECT scheduled_at
        FROM call_bookings
        WHERE coach_id = $1
-       AND status IN ('scheduled', 'confirmed', 'in_progress')
-       AND scheduled_at >= CURRENT_TIMESTAMP
-       ORDER BY scheduled_at`,
-      [coachId]
+       AND DATE(scheduled_at) = $2
+       AND status IN ('scheduled', 'confirmed', 'in_progress')`,
+      [coachId, date]
     );
+
+    // Generate 30-minute time slots
+    const slots = [];
+    const slotDuration = 30; // minutes
+
+    for (const avail of availability.rows) {
+      const startTime = avail.start_time; // e.g., "09:00"
+      const endTime = avail.end_time;     // e.g., "17:00"
+
+      let currentTime = startTime;
+      while (currentTime < endTime) {
+        const [hours, minutes] = currentTime.split(':').map(Number);
+        const nextMinutes = minutes + slotDuration;
+        const nextHours = hours + Math.floor(nextMinutes / 60);
+        const nextTime = `${String(nextHours).padStart(2, '0')}:${String(nextMinutes % 60).padStart(2, '0')}`;
+
+        if (nextTime <= endTime) {
+          // Check if slot is blocked
+          const isBlocked = blocked.rows.some(b => {
+            return currentTime >= b.start_time && currentTime < b.end_time;
+          });
+
+          // Check if slot is already booked
+          const isBooked = bookings.rows.some(b => {
+            const bookingTime = new Date(b.scheduled_at).toTimeString().substring(0, 5);
+            return bookingTime === currentTime;
+          });
+
+          if (!isBlocked && !isBooked) {
+            slots.push({
+              start_time: currentTime,
+              end_time: nextTime
+            });
+          }
+        }
+
+        currentTime = nextTime;
+      }
+    }
 
     res.json({
       success: true,
-      data: {
-        availability: availability.rows,
-        blockedSlots: blocked.rows,
-        bookedSlots: bookings.rows
-      }
+      data: slots
     });
   } catch (error) {
     console.error('Get availability error:', error);

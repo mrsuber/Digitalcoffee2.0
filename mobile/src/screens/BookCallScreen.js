@@ -98,7 +98,8 @@ export const BookCallScreen = ({ navigation, route }) => {
   };
 
   const handleDateSelect = (date) => {
-    const selectedDateTime = new Date(date.dateString);
+    // Create date at noon to avoid timezone issues
+    const selectedDateTime = new Date(date.dateString + 'T12:00:00');
     const now = new Date();
     const hoursDifference = (selectedDateTime - now) / (1000 * 60 * 60);
 
@@ -106,7 +107,7 @@ export const BookCallScreen = ({ navigation, route }) => {
       showAlert({
         type: 'warning',
         title: 'Invalid Date',
-        message: 'Bookings must be made at least 24 hours in advance',
+        message: 'Sessions must be booked at least 24 hours in advance. Please select a later date.',
       });
       return;
     }
@@ -177,9 +178,10 @@ export const BookCallScreen = ({ navigation, route }) => {
   };
 
   const getMinDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    const minDate = new Date();
+    // Add 24 hours + 1 day to ensure we're always past the 24-hour requirement
+    minDate.setDate(minDate.getDate() + 2);
+    return minDate.toISOString().split('T')[0];
   };
 
   const getMaxDate = () => {
@@ -308,7 +310,7 @@ export const BookCallScreen = ({ navigation, route }) => {
           selectedDayTextColor: '#FFFFFF',
           todayTextColor: theme.colors.primary,
           dayTextColor: theme.colors.text,
-          textDisabledColor: theme.colors.textSecondary,
+          textDisabledColor: '#9CA3AF',
           monthTextColor: theme.colors.text,
           arrowColor: theme.colors.primary,
         }}
@@ -321,19 +323,24 @@ export const BookCallScreen = ({ navigation, route }) => {
             selectedColor: theme.colors.primary
           }
         } : {}}
+        enableSwipeMonths={true}
       />
     </View>
   );
 
   const renderTimeSelection = () => (
     <View style={styles.stepContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={() => setStep(2)}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => setStep(2)}
+        activeOpacity={0.7}
+      >
         <Text style={styles.backButtonText}>← Back to Calendar</Text>
       </TouchableOpacity>
 
       <Text style={styles.stepTitle}>Select a Time Slot</Text>
       <Text style={styles.stepSubtitle}>
-        Available times for {new Date(selectedDate).toLocaleDateString('en-US', {
+        Available times for {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
           weekday: 'long',
           month: 'long',
           day: 'numeric'
@@ -365,12 +372,20 @@ export const BookCallScreen = ({ navigation, route }) => {
           ))
         ) : (
           <View style={styles.noAvailability}>
+            <Text style={styles.noAvailabilityIcon}>📅</Text>
             <Text style={styles.noAvailabilityText}>
               No available time slots for this date
             </Text>
             <Text style={styles.noAvailabilitySubtext}>
-              Please select a different date
+              This coach may not have availability on this day of the week
             </Text>
+            <TouchableOpacity
+              style={styles.selectDifferentDateButton}
+              onPress={() => setStep(2)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.selectDifferentDateText}>Select Different Date</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -599,11 +614,15 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
   backButtonText: {
     fontSize: 16,
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   coachList: {
     flex: 1,
@@ -723,6 +742,10 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
   },
+  noAvailabilityIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
   noAvailabilityText: {
     fontSize: 18,
     fontWeight: '600',
@@ -734,6 +757,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+    marginBottom: 24,
+  },
+  selectDifferentDateButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  selectDifferentDateText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   confirmationCard: {
     borderRadius: 16,
