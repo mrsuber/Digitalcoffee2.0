@@ -13,8 +13,12 @@ router.post('/checkin',
   [
     body('mood').isIn(['clear', 'calm', 'tired', 'anxious', 'foggy']),
     body('focus_level').isIn(['low', 'medium', 'high']),
-    body('daily_goal').optional().trim(),
-    body('emoji_rating').optional().isInt({ min: 1, max: 5 })
+    body('daily_goal').optional({ nullable: true }).trim(),
+    body('emoji_rating').optional({ nullable: true }).custom((value) => {
+      if (value === null || value === undefined) return true;
+      if (Number.isInteger(value) && value >= 1 && value <= 5) return true;
+      throw new Error('emoji_rating must be an integer between 1 and 5');
+    })
   ],
   async (req, res) => {
     // Debug logging
