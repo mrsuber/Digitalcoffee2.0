@@ -28,6 +28,7 @@ import CoachReviews from './pages/CoachReviews';
 import CoachMessaging from './pages/CoachMessaging';
 import CoachVideoSessions from './pages/CoachVideoSessions';
 import CoachVideoCall from './pages/CoachVideoCall';
+import CoachAvailability from './pages/CoachAvailability';
 import SubscriptionManagement from './pages/SubscriptionManagement';
 import FeedbackManagement from './pages/FeedbackManagement';
 import UserActivity from './pages/UserActivity';
@@ -35,6 +36,7 @@ import JournalManagement from './pages/JournalManagement';
 import VideoCallManagement from './pages/VideoCallManagement';
 import CallRecordings from './pages/CallRecordings';
 import CallAnalytics from './pages/CallAnalytics';
+import LegalDocuments from './pages/LegalDocuments';
 
 function PrivateRoute({ children, allowedRoles = [] }) {
   const { isAuthenticated, loading, admin } = useAuth();
@@ -132,6 +134,7 @@ function App() {
             <Route path="video-calls" element={<VideoCallManagement />} />
             <Route path="call-recordings" element={<CallRecordings />} />
             <Route path="call-analytics" element={<CallAnalytics />} />
+            <Route path="legal-documents" element={<LegalDocuments />} />
           </Route>
 
           {/* Coach Routes - Only for professional coaches */}
@@ -150,6 +153,7 @@ function App() {
             <Route path="messages" element={<CoachMessaging />} />
             <Route path="reviews" element={<CoachReviews />} />
             <Route path="video-sessions" element={<CoachVideoSessions />} />
+            <Route path="availability" element={<CoachAvailability />} />
           </Route>
 
           {/* Video Call Route - Full screen, outside CoachLayout */}

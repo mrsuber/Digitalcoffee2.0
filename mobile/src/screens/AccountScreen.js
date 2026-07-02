@@ -16,7 +16,7 @@ import { progressAPI, coachingAPI, authAPI, professionalCoachesAPI, subscription
 import { useAlert } from '../components/CustomAlert';
 
 export const AccountScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { showAlert, AlertComponent } = useAlert();
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -165,9 +165,10 @@ export const AccountScreen = ({ navigation }) => {
             {
               text: 'OK',
               onPress: async () => {
-                // Clear all local data and logout
-                await AsyncStorage.clear();
-                // Navigation will be handled by AuthContext
+                // Logout user and clear all data
+                await logout();
+                // Navigate to Auth screen
+                navigation.replace('Auth');
               },
             },
           ],

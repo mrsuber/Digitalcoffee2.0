@@ -505,4 +505,16 @@ api.saveFCMToken = async (fcmToken) => {
   }
 };
 
+// Legal Documents endpoints
+export const legalAPI = {
+  getTermsOfService: () =>
+    api.get('/legal/documents/terms_of_service'),
+
+  getPrivacyPolicy: () =>
+    api.get('/legal/documents/privacy_policy'),
+
+  getAllDocuments: () =>
+    api.get('/legal/documents'),
+};
+
 export default api;

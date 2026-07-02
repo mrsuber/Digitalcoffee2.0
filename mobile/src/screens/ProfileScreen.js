@@ -2,23 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
-import { progressAPI } from '../services/api';
+import { progressAPI, subscriptionAPI } from '../services/api';
 
 export const ProfileScreen = ({ navigation }) => {
   const { user, logout, refreshUser } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
 
   useEffect(() => {
     loadUserStats();
+    loadSubscriptionStatus();
   }, []);
 
   // Refresh user data when screen comes into focus (e.g., after upgrading to premium)
   useFocusEffect(
     React.useCallback(() => {
       refreshUser();
+      loadSubscriptionStatus();
     }, [])
   );
 
@@ -33,6 +37,30 @@ export const ProfileScreen = ({ navigation }) => {
       console.error('Error loading user stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSubscriptionStatus = async () => {
+    try {
+      const response = await subscriptionAPI.getStatus();
+      if (response.success) {
+        setSubscriptionStatus(response.data.subscription_status);
+
+        // Update user object in storage with subscription info
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          const updatedUser = {
+            ...JSON.parse(userData),
+            subscription_status: response.data.subscription_status,
+            subscription_type: response.data.subscription_status // For backward compatibility
+          };
+          await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+          // Trigger a refresh to update context
+          await refreshUser();
+        }
+      }
+    } catch (error) {
+      console.error('Error loading subscription status:', error);
     }
   };
 
@@ -139,7 +167,7 @@ export const ProfileScreen = ({ navigation }) => {
         </View>
 
         {/* Premium Upgrade Button */}
-        {user?.subscription_status !== 'premium' && (
+        {!hasPremiumAccess && (
           <TouchableOpacity
             style={styles.premiumButton}
             onPress={() => navigation.navigate('Subscription')}

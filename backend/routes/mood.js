@@ -11,7 +11,7 @@ router.use(authenticateToken);
 // Create mood check-in
 router.post('/checkin',
   [
-    body('mood').isIn(['clear', 'tired', 'anxious', 'foggy', 'inspired']),
+    body('mood').isIn(['clear', 'calm', 'tired', 'anxious', 'foggy']),
     body('focus_level').isIn(['low', 'medium', 'high']),
     body('daily_goal').optional().trim(),
     body('emoji_rating').optional().isInt({ min: 1, max: 5 })

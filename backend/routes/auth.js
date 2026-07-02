@@ -142,9 +142,9 @@ router.post('/login',
     const { email, password } = req.body;
 
     try {
-      // Get user
+      // Get user with subscription info
       const result = await db.query(
-        'SELECT id, email, password_hash, name, is_deleted, deleted_at FROM users WHERE email = $1',
+        'SELECT id, email, password_hash, name, is_deleted, deleted_at, subscription_status FROM users WHERE email = $1',
         [email]
       );
 
@@ -196,7 +196,9 @@ router.post('/login',
           user: {
             id: user.id,
             email: user.email,
-            name: user.name
+            name: user.name,
+            subscription_status: user.subscription_status,
+            subscription_type: user.subscription_status // For backward compatibility
           },
           accessToken,
           refreshToken

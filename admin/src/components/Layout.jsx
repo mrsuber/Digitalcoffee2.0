@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, BookOpen, Music, Heart, Brain, LogOut, ListChecks, TrendingUp, UserCheck, MessageSquare, Bell, GraduationCap, CreditCard, UserX, MessageCircle, Activity, Video, VideoOff, BarChart } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Music, Heart, Brain, LogOut, ListChecks, TrendingUp, UserCheck, MessageSquare, Bell, GraduationCap, CreditCard, UserX, MessageCircle, Activity, Video, VideoOff, BarChart, FileText } from 'lucide-react';
 
 export default function Layout() {
   const { admin, logout } = useAuth();
@@ -35,6 +35,7 @@ export default function Layout() {
     { path: '/audio', icon: Music, label: 'Audio Content' },
     { path: '/community', icon: MessageSquare, label: 'Community' },
     { path: '/notifications', icon: Bell, label: 'Notifications' },
+    { path: '/legal-documents', icon: FileText, label: 'Legal Documents' },
     { path: '/feature-status', icon: ListChecks, label: 'Feature Status' },
   ];
 

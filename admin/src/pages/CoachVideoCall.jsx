@@ -347,18 +347,10 @@ export default function CoachVideoCall() {
         }
       };
 
-      // Join session room
-      console.log('🔌 Joining session with data:', {
-        sessionToken: callData.sessionToken,
-        userId: callData.coachUserId,
-        userType: 'coach'
-      });
-
-      socketRef.current.emit('join-session', {
-        sessionToken: callData.sessionToken,
-        userId: callData.coachUserId,
-        userType: 'coach'
-      });
+      // ========================================
+      // IMPORTANT: Set up ALL socket listeners BEFORE emitting join-session
+      // to avoid race conditions with immediate backend responses
+      // ========================================
 
       // Listen for user-joined event (when student joins)
       socketRef.current.on('user-joined', async (data) => {
@@ -442,6 +434,21 @@ export default function CoachVideoCall() {
       socketRef.current.on('call-ended', (data) => {
         console.log('📞 Call ended:', data.reason);
         endCall();
+      });
+
+      // ========================================
+      // NOW emit join-session AFTER all listeners are set up
+      // ========================================
+      console.log('🔌 Joining session with data:', {
+        sessionToken: callData.sessionToken,
+        userId: callData.coachUserId,
+        userType: 'coach'
+      });
+
+      socketRef.current.emit('join-session', {
+        sessionToken: callData.sessionToken,
+        userId: callData.coachUserId,
+        userType: 'coach'
       });
 
     } catch (error) {

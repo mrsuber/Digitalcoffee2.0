@@ -108,10 +108,18 @@ class WebRTCSignalingServer {
           }
 
           // Check user is part of this session
-          if (session.coach_id !== userId && session.student_id !== userId) {
+          // For coaches: check coach_user_id, for students: check student_id
+          const isCoach = session.coach_user_id === userId;
+          const isStudent = session.student_id === userId;
+
+          if (!isCoach && !isStudent) {
+            console.error(`❌ Unauthorized join attempt: userId=${userId}, coach_user_id=${session.coach_user_id}, student_id=${session.student_id}`);
             socket.emit('error', { message: 'Unauthorized access to session' });
             return;
           }
+
+          console.log(`✅ User ${userId} authorized as ${isCoach ? 'coach' : 'student'}`);
+
 
           const roomId = session.room_id;
           socket.join(roomId);
@@ -370,9 +378,10 @@ class WebRTCSignalingServer {
 
   async getSession(sessionToken) {
     const result = await db.query(
-      `SELECT s.*, b.duration_minutes
+      `SELECT s.*, b.duration_minutes, pc.user_id as coach_user_id
        FROM call_sessions s
        LEFT JOIN call_bookings b ON s.booking_id = b.id
+       LEFT JOIN professional_coaches pc ON s.coach_id = pc.id
        WHERE s.session_token = $1 AND s.status != 'completed'`,
       [sessionToken]
     );

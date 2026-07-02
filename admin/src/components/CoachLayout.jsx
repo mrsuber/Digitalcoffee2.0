@@ -8,6 +8,7 @@ import {
   Star,
   MessageSquare,
   Video,
+  Clock,
   LogOut
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ export default function CoachLayout() {
   const navItems = [
     { path: '/coach', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/coach/students', icon: Users, label: 'My Students' },
+    { path: '/coach/availability', icon: Clock, label: 'Availability' },
     { path: '/coach/messages', icon: MessageSquare, label: 'Messages' },
     { path: '/coach/sessions', icon: Calendar, label: 'Sessions' },
     { path: '/coach/video-sessions', icon: Video, label: 'Video Sessions' },

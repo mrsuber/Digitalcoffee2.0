@@ -22,6 +22,7 @@ const coachRoutes = require('./routes/coach');
 const subscriptionRoutes = require('./routes/subscription');
 const feedbackRoutes = require('./routes/feedback');
 const videoCallsRoutes = require('./routes/video-calls');
+const legalRoutes = require('./routes/legal');
 
 const WebRTCSignalingServer = require('./services/webrtcSignaling');
 
@@ -126,6 +127,7 @@ app.use('/api/coach', coachRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/video-calls', videoCallsRoutes);
+app.use('/api/legal', legalRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

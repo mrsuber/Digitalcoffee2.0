@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
+import { moodAPI } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +50,7 @@ export const MoodCheckScreen = ({ navigation }) => {
   const [customGoal, setCustomGoal] = useState('');
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [sliderWidth, setSliderWidth] = useState(width - 80);
+  const [saving, setSaving] = useState(false);
 
   // Helper function to get user-specific storage key
   const getUserKey = (key) => {
@@ -87,19 +89,60 @@ export const MoodCheckScreen = ({ navigation }) => {
     }
   };
 
-  const handleNext = () => {
-    if (!selectedMood) return;
+  const handleNext = async () => {
+    if (!selectedMood || saving) return;
 
     const finalGoal = selectedGoal === 'Other' ? customGoal : selectedGoal;
 
-    const moodData = {
-      mood: selectedMood,
-      mood_intensity: moodIntensity,
-      focus_level: focusLevel,
-      daily_goal: finalGoal,
-    };
+    try {
+      setSaving(true);
 
-    navigation.navigate('MindModeSelection', { moodData });
+      // Save mood check-in to backend
+      const response = await moodAPI.createCheckin(
+        selectedMood,
+        focusLevel,
+        finalGoal,
+        null // emoji_rating is optional, we can add this later
+      );
+
+      if (response.success) {
+        console.log('✅ Mood check-in saved:', response.data);
+
+        // Still pass mood data to next screen for immediate use
+        const moodData = {
+          mood: selectedMood,
+          mood_intensity: moodIntensity,
+          focus_level: focusLevel,
+          daily_goal: finalGoal,
+        };
+
+        navigation.navigate('MindModeSelection', { moodData });
+      } else {
+        console.error('Failed to save mood check-in:', response);
+        // Still navigate even if save fails
+        navigation.navigate('MindModeSelection', {
+          moodData: {
+            mood: selectedMood,
+            mood_intensity: moodIntensity,
+            focus_level: focusLevel,
+            daily_goal: finalGoal,
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error saving mood check-in:', error);
+      // Still navigate even if there's an error
+      navigation.navigate('MindModeSelection', {
+        moodData: {
+          mood: selectedMood,
+          mood_intensity: moodIntensity,
+          focus_level: focusLevel,
+          daily_goal: finalGoal,
+        }
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSliderTouch = (event) => {
@@ -255,10 +298,10 @@ export const MoodCheckScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[
             styles.nextButton,
-            !selectedMood && styles.nextButtonDisabled,
+            (!selectedMood || saving) && styles.nextButtonDisabled,
           ]}
           onPress={handleNext}
-          disabled={!selectedMood}
+          disabled={!selectedMood || saving}
           activeOpacity={0.8}
         >
           <LinearGradient
@@ -268,7 +311,11 @@ export const MoodCheckScreen = ({ navigation }) => {
             style={styles.nextButtonGradientBorder}
           >
             <View style={styles.nextButtonInner}>
-              <Text style={styles.nextButtonText}>Next</Text>
+              {saving ? (
+                <ActivityIndicator color={theme.colors.text} />
+              ) : (
+                <Text style={styles.nextButtonText}>Next</Text>
+              )}
             </View>
           </LinearGradient>
         </TouchableOpacity>
