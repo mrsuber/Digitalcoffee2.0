@@ -17,8 +17,12 @@ router.post('/checkin',
     body('emoji_rating').optional().isInt({ min: 1, max: 5 })
   ],
   async (req, res) => {
+    // Debug logging
+    console.log('📝 Mood check-in request body:', req.body);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.error('❌ Validation errors:', JSON.stringify(errors.array(), null, 2));
       return res.status(400).json({
         success: false,
         errors: errors.array()
@@ -27,6 +31,8 @@ router.post('/checkin',
 
     const { mood, focus_level, daily_goal, emoji_rating } = req.body;
     const userId = req.user.userId;
+
+    console.log('✅ Validated mood data:', { userId, mood, focus_level, daily_goal, emoji_rating });
 
     try {
       const result = await db.query(
