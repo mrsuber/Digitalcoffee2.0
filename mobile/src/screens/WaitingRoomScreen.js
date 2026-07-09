@@ -61,12 +61,6 @@ export const WaitingRoomScreen = ({ navigation, route }) => {
     if (countdown === null) return;
 
     if (countdown === 0) {
-      // Clean up socket listeners before navigating
-      if (webrtcService.socket) {
-        webrtcService.socket.off('user-joined');
-        console.log('📹 WaitingRoom: Cleaned up listeners, navigating to VideoCall');
-      }
-
       // Verify stream has tracks before navigating
       if (!localStream || localStream.getTracks().length === 0) {
         console.error('❌ Cannot navigate - no valid stream!');
@@ -74,15 +68,23 @@ export const WaitingRoomScreen = ({ navigation, route }) => {
         return;
       }
 
-      console.log('📹 WaitingRoom: Navigating to VideoCall with stream:', {
+      console.log('📹 WaitingRoom: Storing stream in webrtcService before navigation:', {
         id: localStream.id,
         tracks: localStream.getTracks().map(t => `${t.kind}:${t.enabled}:${t.readyState}`)
       });
 
-      // Navigate to video call
+      // Store stream in webrtcService (don't pass via navigation params!)
+      webrtcService.localStream = localStream;
+
+      // Verify it was stored
+      console.log('📹 WaitingRoom: Verified stream stored:', {
+        hasStream: !!webrtcService.localStream,
+        tracksCount: webrtcService.localStream?.getTracks().length
+      });
+
+      // Navigate to video call WITHOUT passing the stream
       navigation.replace('VideoCall', {
         session: session,
-        localStream: localStream,
       });
       return;
     }

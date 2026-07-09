@@ -77,6 +77,17 @@ export default function CoachVideoCall() {
     return () => clearInterval(interval);
   }, [callActive]);
 
+  // Set up local video when stream is available and video element is rendered
+  useEffect(() => {
+    if (callActive && localStreamRef.current && localVideoRef.current) {
+      console.log('📹 Setting up local video element');
+      localVideoRef.current.srcObject = localStreamRef.current;
+      localVideoRef.current.play()
+        .then(() => console.log('✅ Local video playing'))
+        .catch(e => console.warn('⚠️ Local video autoplay issue:', e));
+    }
+  }, [callActive]);
+
   const loadStudentInfo = async () => {
     try {
       setLoading(true);
@@ -130,11 +141,8 @@ export default function CoachVideoCall() {
         });
       });
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        await localVideoRef.current.play().catch(e => console.log('Video autoplay:', e));
-        console.log('📹 Local video element playing');
-      }
+      // Local video element will be set up by useEffect when callActive becomes true
+      console.log('📹 Local stream ready, waiting for video element to render');
 
       setStatusMessage('Connecting to server...');
 

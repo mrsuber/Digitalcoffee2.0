@@ -20,14 +20,15 @@ import webrtcService from '../services/webrtc';
 const { width, height } = Dimensions.get('window');
 
 export const VideoCallScreen = ({ navigation, route }) => {
-  const { session, localStream: initialLocalStream } = route.params || {};
+  const { session } = route.params || {};
   const { user } = useAuth();
 
   // Log route params for debugging
   console.log('📹 VideoCallScreen route params:', route.params);
   console.log('📹 Session object:', session);
 
-  const [localStream, setLocalStream] = useState(initialLocalStream);
+  // Get local stream from webrtcService (stored by WaitingRoom)
+  const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [micEnabled, setMicEnabled] = useState(true);
@@ -62,16 +63,26 @@ export const VideoCallScreen = ({ navigation, route }) => {
         throw new Error('Session data is missing');
       }
 
-      // Validate local stream
-      if (!initialLocalStream) {
-        console.error('❌ No local stream provided from WaitingRoom!');
+      // Retrieve local stream from webrtcService (stored by WaitingRoom)
+      const storedStream = webrtcService.localStream;
+
+      if (!storedStream) {
+        console.error('❌ No local stream found in webrtcService!');
         throw new Error('Camera not initialized. Please try again.');
       }
 
+      console.log('📹 VideoCall: Retrieved stream from webrtcService:', {
+        id: storedStream.id,
+        tracksCount: storedStream.getTracks().length
+      });
+
+      // Set local stream in component state for display
+      setLocalStream(storedStream);
+
       // Verify stream has tracks
-      const videoTracks = initialLocalStream.getVideoTracks();
-      const audioTracks = initialLocalStream.getAudioTracks();
-      console.log('📹 VideoCall: Local stream tracks received from WaitingRoom:');
+      const videoTracks = storedStream.getVideoTracks();
+      const audioTracks = storedStream.getAudioTracks();
+      console.log('📹 VideoCall: Local stream tracks:');
       console.log('  - Video tracks:', videoTracks.length, videoTracks.map(t => `${t.label}:${t.enabled}:${t.readyState}`));
       console.log('  - Audio tracks:', audioTracks.length, audioTracks.map(t => `${t.label}:${t.enabled}:${t.readyState}`));
 
@@ -85,7 +96,7 @@ export const VideoCallScreen = ({ navigation, route }) => {
       }
 
       // Verify tracks are live
-      const deadTracks = initialLocalStream.getTracks().filter(t => t.readyState !== 'live');
+      const deadTracks = storedStream.getTracks().filter(t => t.readyState !== 'live');
       if (deadTracks.length > 0) {
         console.error('❌ Some tracks are not live:', deadTracks.map(t => `${t.kind}:${t.readyState}`));
         throw new Error('Camera/microphone not ready. Please try again.');
@@ -154,11 +165,9 @@ export const VideoCallScreen = ({ navigation, route }) => {
         }
       };
 
-      // Set the local stream from WaitingRoom
-      webrtcService.localStream = initialLocalStream;
-
-      // Verify the stream is properly set
-      console.log('📹 Verifying local stream before initialization:');
+      // Stream is already stored in webrtcService by WaitingRoom
+      // Verify the stream is still valid
+      console.log('📹 Verifying local stream in webrtcService:');
       console.log('   - Stream exists:', !!webrtcService.localStream);
       console.log('   - Stream ID:', webrtcService.localStream?.id);
       console.log('   - Tracks:', webrtcService.localStream?.getTracks().map(t =>
@@ -166,7 +175,7 @@ export const VideoCallScreen = ({ navigation, route }) => {
       ));
 
       if (!webrtcService.localStream || webrtcService.localStream.getTracks().length === 0) {
-        console.error('❌ Local stream is invalid!');
+        console.error('❌ Local stream is invalid in webrtcService!');
         throw new Error('Local stream not properly initialized');
       }
 
