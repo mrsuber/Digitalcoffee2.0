@@ -79,13 +79,88 @@ export default function CoachVideoCall() {
 
   // Set up local video when stream is available and video element is rendered
   useEffect(() => {
-    if (callActive && localStreamRef.current && localVideoRef.current) {
+    const setupLocalVideo = () => {
+      if (!callActive || !localVideoRef.current) {
+        console.log('⏳ Waiting for callActive and video element...');
+        return;
+      }
+
+      if (!localStreamRef.current) {
+        console.log('⏳ Waiting for local stream...');
+        return;
+      }
+
       console.log('📹 Setting up local video element');
-      localVideoRef.current.srcObject = localStreamRef.current;
-      localVideoRef.current.play()
-        .then(() => console.log('✅ Local video playing'))
-        .catch(e => console.warn('⚠️ Local video autoplay issue:', e));
-    }
+      console.log('   - Stream ID:', localStreamRef.current.id);
+      console.log('   - Video element exists:', !!localVideoRef.current);
+      console.log('   - Tracks:', localStreamRef.current.getTracks().map(t =>
+        `${t.kind}:${t.enabled}:${t.readyState}`
+      ));
+
+      try {
+        localVideoRef.current.srcObject = localStreamRef.current;
+        console.log('   - srcObject set successfully');
+
+        localVideoRef.current.play()
+          .then(() => {
+            console.log('✅ Local video playing');
+            console.log('   - Video dimensions:', localVideoRef.current.videoWidth, 'x', localVideoRef.current.videoHeight);
+          })
+          .catch(e => {
+            console.warn('⚠️ Local video autoplay issue:', e);
+            // Try with user interaction
+            localVideoRef.current.muted = true;
+            localVideoRef.current.play().catch(e2 => console.error('❌ Retry failed:', e2));
+          });
+      } catch (error) {
+        console.error('❌ Error setting local video srcObject:', error);
+      }
+    };
+
+    // Run immediately
+    setupLocalVideo();
+
+    // Also check periodically for the first 5 seconds
+    const interval = setInterval(setupLocalVideo, 500);
+    setTimeout(() => clearInterval(interval), 5000);
+
+    return () => clearInterval(interval);
+  }, [callActive]);
+
+  // Set up remote video when it's received
+  useEffect(() => {
+    if (!callActive) return;
+
+    const checkInterval = setInterval(() => {
+      if (remoteVideoRef.current?.srcObject) {
+        const stream = remoteVideoRef.current.srcObject;
+        const tracks = stream.getTracks();
+        console.log('📹 Remote video srcObject detected');
+        console.log('   - Stream ID:', stream.id);
+        console.log('   - Tracks:', tracks.map(t => `${t.kind}:${t.enabled}:${t.readyState}`));
+
+        remoteVideoRef.current.play()
+          .then(() => {
+            console.log('✅ Remote video playing successfully');
+            console.log('   - Video dimensions:', remoteVideoRef.current.videoWidth, 'x', remoteVideoRef.current.videoHeight);
+            clearInterval(checkInterval);
+          })
+          .catch(e => {
+            console.warn('⚠️ Remote video autoplay issue:', e);
+            // Retry
+            setTimeout(() => {
+              remoteVideoRef.current?.play().catch(e2 =>
+                console.error('❌ Remote video retry failed:', e2)
+              );
+            }, 1000);
+          });
+      }
+    }, 500);
+
+    // Clear interval after 30 seconds
+    setTimeout(() => clearInterval(checkInterval), 30000);
+
+    return () => clearInterval(checkInterval);
   }, [callActive]);
 
   const loadStudentInfo = async () => {
@@ -141,8 +216,7 @@ export default function CoachVideoCall() {
         });
       });
 
-      // Local video element will be set up by useEffect when callActive becomes true
-      console.log('📹 Local stream ready, waiting for video element to render');
+      console.log('📹 Local stream stored in ref, will be set when callActive=true');
 
       setStatusMessage('Connecting to server...');
 
