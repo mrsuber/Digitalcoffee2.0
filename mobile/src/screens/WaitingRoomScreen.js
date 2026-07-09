@@ -35,21 +35,18 @@ export const WaitingRoomScreen = ({ navigation, route }) => {
     // If session was provided (instant call), use it directly
     if (providedSession) {
       console.log('📹 WaitingRoom: Using provided session data for instant call');
-      initializeWebRTC(providedSession);
-      setLoading(false);
-      // For instant calls, skip waiting - both parties are ready
-      setOtherUserJoined(true);
-      setWaitingForOther(false);
+      // Initialize WebRTC first, THEN proceed
+      initializeWebRTCForInstantCall(providedSession);
     } else {
       // Fetch session from booking
       joinSession();
     }
 
     return () => {
-      // Cleanup on unmount
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
+      // Cleanup on unmount - but DON'T stop tracks if navigating to VideoCall
+      // The VideoCall screen will manage the stream
+      console.log('📹 WaitingRoom: Unmounting, stream will be managed by VideoCall');
+      // DO NOT stop tracks here - they're needed in VideoCall
     };
   }, []);
 
@@ -69,6 +66,18 @@ export const WaitingRoomScreen = ({ navigation, route }) => {
         webrtcService.socket.off('user-joined');
         console.log('📹 WaitingRoom: Cleaned up listeners, navigating to VideoCall');
       }
+
+      // Verify stream has tracks before navigating
+      if (!localStream || localStream.getTracks().length === 0) {
+        console.error('❌ Cannot navigate - no valid stream!');
+        Alert.alert('Error', 'Camera stream is not ready. Please try again.');
+        return;
+      }
+
+      console.log('📹 WaitingRoom: Navigating to VideoCall with stream:', {
+        id: localStream.id,
+        tracks: localStream.getTracks().map(t => `${t.kind}:${t.enabled}:${t.readyState}`)
+      });
 
       // Navigate to video call
       navigation.replace('VideoCall', {
@@ -117,40 +126,79 @@ export const WaitingRoomScreen = ({ navigation, route }) => {
     }
   };
 
+  // Initialize WebRTC for scheduled bookings
   const initializeWebRTC = async (sessionData) => {
     try {
-      // For instant calls, just get the camera preview
-      // Don't connect to socket or join session - VideoCallScreen will handle that
+      // For scheduled calls, get the camera preview
       const stream = await webrtcService.getUserMedia(cameraEnabled, micEnabled);
       setLocalStream(stream);
 
       console.log('📹 WaitingRoom: Got local stream for preview');
 
-      // For instant calls, we don't need to wait for coordination
-      // Both parties are already ready, so we can skip the socket coordination
-
     } catch (error) {
       console.error('WaitingRoom initialization error:', error);
+      handleCameraError(error);
+    }
+  };
 
-      if (error.message.includes('Permission denied')) {
-        Alert.alert(
-          'Camera/Microphone Access Required',
-          'Please grant camera and microphone permissions to join the video call.',
-          [
-            {
-              text: 'Go Back',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
-      } else {
-        showAlert({
-          type: 'error',
-          title: 'Setup Error',
-          message: 'Failed to setup camera and microphone',
-          onConfirm: () => navigation.goBack(),
-        });
-      }
+  // Initialize WebRTC specifically for instant calls
+  const initializeWebRTCForInstantCall = async (sessionData) => {
+    try {
+      console.log('📹 WaitingRoom: Initializing camera for instant call...');
+
+      // Get the camera preview - AWAIT this to ensure stream is ready
+      const stream = await webrtcService.getUserMedia(cameraEnabled, micEnabled);
+
+      console.log('📹 WaitingRoom: Got local stream with tracks:',
+        stream.getTracks().map(t => `${t.kind}:${t.enabled}:${t.readyState}`).join(', ')
+      );
+
+      setLocalStream(stream);
+      setLoading(false);
+
+      // NOW that camera is ready, trigger the countdown
+      // For instant calls, both parties are ready
+      setOtherUserJoined(true);
+      setWaitingForOther(false);
+
+    } catch (error) {
+      console.error('WaitingRoom instant call initialization error:', error);
+      setLoading(false);
+      handleCameraError(error);
+    }
+  };
+
+  // Centralized error handling for camera/mic issues
+  const handleCameraError = (error) => {
+    if (error.message?.includes('Permission denied') || error.name === 'NotAllowedError') {
+      Alert.alert(
+        'Camera/Microphone Access Required',
+        'Please grant camera and microphone permissions to join the video call.',
+        [
+          {
+            text: 'Go Back',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    } else if (error.name === 'NotFoundError') {
+      Alert.alert(
+        'Camera/Microphone Not Found',
+        'No camera or microphone was detected on your device.',
+        [
+          {
+            text: 'Go Back',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    } else {
+      showAlert({
+        type: 'error',
+        title: 'Setup Error',
+        message: 'Failed to setup camera and microphone: ' + (error.message || 'Unknown error'),
+        onConfirm: () => navigation.goBack(),
+      });
     }
   };
 

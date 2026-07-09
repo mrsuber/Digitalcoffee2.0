@@ -111,9 +111,29 @@ export default function CoachVideoCall() {
       });
 
       localStreamRef.current = stream;
+
+      // Verify we have video tracks
+      const videoTracks = stream.getVideoTracks();
+      const audioTracks = stream.getAudioTracks();
+      console.log('📹 Local stream captured:');
+      console.log('   - Video tracks:', videoTracks.length);
+      console.log('   - Audio tracks:', audioTracks.length);
+
+      videoTracks.forEach((track, idx) => {
+        console.log(`   - Video track ${idx}:`, {
+          id: track.id,
+          label: track.label,
+          enabled: track.enabled,
+          muted: track.muted,
+          readyState: track.readyState,
+          settings: track.getSettings()
+        });
+      });
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(e => console.log('Video autoplay:', e));
+        await localVideoRef.current.play().catch(e => console.log('Video autoplay:', e));
+        console.log('📹 Local video element playing');
       }
 
       setStatusMessage('Connecting to server...');
@@ -259,9 +279,36 @@ export default function CoachVideoCall() {
       // Create peer connection
       peerConnectionRef.current = new RTCPeerConnection(ICE_SERVERS);
 
-      // Add local stream tracks
-      localStreamRef.current.getTracks().forEach(track => {
-        peerConnectionRef.current.addTrack(track, localStreamRef.current);
+      // Verify local stream still has tracks before adding
+      if (!localStreamRef.current) {
+        console.error('❌ No local stream available for peer connection!');
+        throw new Error('Local stream is not available');
+      }
+
+      const tracks = localStreamRef.current.getTracks();
+      console.log('📹 Adding local tracks to peer connection:');
+      console.log('   - Total tracks in stream:', tracks.length);
+
+      if (tracks.length === 0) {
+        console.error('❌ Local stream has no tracks!');
+        throw new Error('Local stream has no tracks');
+      }
+
+      tracks.forEach(track => {
+        console.log(`   - Adding ${track.kind}: enabled=${track.enabled}, readyState=${track.readyState}`);
+        const sender = peerConnectionRef.current.addTrack(track, localStreamRef.current);
+        console.log('   - Sender created:', sender ? 'yes' : 'no');
+      });
+
+      // Verify tracks were added
+      const senders = peerConnectionRef.current.getSenders();
+      console.log('📹 Verification - Total senders after adding tracks:', senders.length);
+      senders.forEach(sender => {
+        if (sender.track) {
+          console.log(`   - Sender has ${sender.track.kind} track: ${sender.track.readyState}`);
+        } else {
+          console.log('   - Sender has no track (might be for data channel)');
+        }
       });
 
       // Handle ICE candidates
@@ -277,12 +324,53 @@ export default function CoachVideoCall() {
 
       // Handle remote stream
       peerConnectionRef.current.ontrack = (event) => {
-        console.log('📹 Received remote stream');
+        console.log('📹 Received remote track:', event.track.kind, 'enabled:', event.track.enabled, 'readyState:', event.track.readyState);
+        console.log('📹 Track settings:', event.track.getSettings());
+        console.log('📹 Stream ID:', event.streams[0]?.id);
+        console.log('📹 Stream tracks:', event.streams[0]?.getTracks().map(t => `${t.kind}:${t.enabled}:${t.readyState}`));
+
         if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-          callStartTime.current = Date.now();
-          setConnectionState('connected');
-          setStatusMessage('Connected');
+          const stream = event.streams[0];
+
+          // Check if we already have this stream
+          if (remoteVideoRef.current.srcObject !== stream) {
+            console.log('📹 Setting remote video srcObject');
+            remoteVideoRef.current.srcObject = stream;
+          }
+
+          // Log all tracks in the stream
+          const videoTracks = stream.getVideoTracks();
+          const audioTracks = stream.getAudioTracks();
+          console.log('📹 Remote stream has', videoTracks.length, 'video tracks and', audioTracks.length, 'audio tracks');
+
+          videoTracks.forEach((track, idx) => {
+            console.log(`📹 Video track ${idx}:`, {
+              id: track.id,
+              label: track.label,
+              enabled: track.enabled,
+              muted: track.muted,
+              readyState: track.readyState,
+              settings: track.getSettings()
+            });
+          });
+
+          // Explicitly play the video (some browsers require this)
+          remoteVideoRef.current.play()
+            .then(() => {
+              console.log('✅ Remote video playing successfully');
+              callStartTime.current = Date.now();
+              setConnectionState('connected');
+              setStatusMessage('Connected');
+            })
+            .catch(err => {
+              console.error('❌ Error playing remote video:', err);
+              // Try to recover by playing again
+              setTimeout(() => {
+                remoteVideoRef.current?.play().catch(e =>
+                  console.error('❌ Retry play failed:', e)
+                );
+              }, 500);
+            });
         }
       };
 
@@ -361,11 +449,24 @@ export default function CoachVideoCall() {
           // Wait a moment for student to set up peer connection
           setTimeout(async () => {
             try {
+              // Log current senders before creating offer
+              const senders = peerConnectionRef.current.getSenders();
+              console.log('📹 Current senders before offer:', senders.length);
+              senders.forEach(sender => {
+                if (sender.track) {
+                  console.log(`  - ${sender.track.kind}: enabled=${sender.track.enabled}, readyState=${sender.track.readyState}`);
+                }
+              });
+
               console.log('📤 Creating WebRTC offer...');
               const offer = await peerConnectionRef.current.createOffer({
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
               });
+
+              console.log('📹 Offer SDP created. Video present:', offer.sdp.includes('m=video'));
+              console.log('📹 Offer SDP audio present:', offer.sdp.includes('m=audio'));
+
               await peerConnectionRef.current.setLocalDescription(offer);
 
               socketRef.current.emit('webrtc-offer', {
@@ -390,11 +491,24 @@ export default function CoachVideoCall() {
           console.log('📝 Student already in session, creating offer immediately');
           setTimeout(async () => {
             try {
+              // Log current senders before creating offer
+              const senders = peerConnectionRef.current.getSenders();
+              console.log('📹 Current senders before offer (fallback):', senders.length);
+              senders.forEach(sender => {
+                if (sender.track) {
+                  console.log(`  - ${sender.track.kind}: enabled=${sender.track.enabled}, readyState=${sender.track.readyState}`);
+                }
+              });
+
               console.log('📤 Creating WebRTC offer (student already present)...');
               const offer = await peerConnectionRef.current.createOffer({
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
               });
+
+              console.log('📹 Offer SDP created. Video present:', offer.sdp.includes('m=video'));
+              console.log('📹 Offer SDP audio present:', offer.sdp.includes('m=audio'));
+
               await peerConnectionRef.current.setLocalDescription(offer);
 
               socketRef.current.emit('webrtc-offer', {
@@ -415,9 +529,13 @@ export default function CoachVideoCall() {
       // Listen for answer
       socketRef.current.on('webrtc-answer', async (data) => {
         console.log('📥 Received answer from student');
+        console.log('📹 Answer SDP. Video present:', data.answer.sdp.includes('m=video'));
+        console.log('📹 Answer SDP. Audio present:', data.answer.sdp.includes('m=audio'));
+
         await peerConnectionRef.current.setRemoteDescription(
           new RTCSessionDescription(data.answer)
         );
+        console.log('✅ Remote description (answer) set successfully');
       });
 
       // Listen for ICE candidates
@@ -757,10 +875,12 @@ export default function CoachVideoCall() {
             ref={remoteVideoRef}
             autoPlay
             playsInline
+            muted={false}
             style={{
               width: '100%',
               height: '100%',
-              objectFit: 'contain'
+              objectFit: 'contain',
+              backgroundColor: '#000'
             }}
           />
           {!callActive && !connecting && (

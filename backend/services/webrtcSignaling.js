@@ -178,21 +178,29 @@ class WebRTCSignalingServer {
       // WebRTC Signaling: Offer
       socket.on('webrtc-offer', (data) => {
         const { roomId, offer, to } = data;
+        console.log('📤 Received WebRTC offer for room:', roomId);
+        console.log('   - Offer has video:', offer?.sdp?.includes('m=video') || false);
+        console.log('   - Offer has audio:', offer?.sdp?.includes('m=audio') || false);
+
         socket.to(roomId).emit('webrtc-offer', {
           offer,
           from: socket.id
         });
-        console.log('WebRTC offer sent to room:', roomId);
+        console.log('✅ WebRTC offer forwarded to room:', roomId);
       });
 
       // WebRTC Signaling: Answer
       socket.on('webrtc-answer', (data) => {
         const { roomId, answer, to } = data;
+        console.log('📤 Received WebRTC answer for room:', roomId);
+        console.log('   - Answer has video:', answer?.sdp?.includes('m=video') || false);
+        console.log('   - Answer has audio:', answer?.sdp?.includes('m=audio') || false);
+
         socket.to(roomId).emit('webrtc-answer', {
           answer,
           from: socket.id
         });
-        console.log('WebRTC answer sent to room:', roomId);
+        console.log('✅ WebRTC answer forwarded to room:', roomId);
       });
 
       // WebRTC Signaling: ICE Candidate

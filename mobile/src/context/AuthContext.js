@@ -28,7 +28,11 @@ export const AuthProvider = ({ children, navigationRef }) => {
 
     if (isAuthenticated && user?.id) {
       console.log('🔌 Initializing socket connection for user:', user.id);
-      socketService.connect(user.id);
+
+      // Connect socket with error handling
+      socketService.connect(user.id).catch(err => {
+        console.error('❌ Socket connection failed in AuthContext:', err);
+      });
 
       // Setup socket listeners once, after connection
       if (!socketListenersSetup.current && navigationRef) {
@@ -133,7 +137,18 @@ export const AuthProvider = ({ children, navigationRef }) => {
 
       return { success: false, message: 'Login failed' };
     } catch (error) {
-      console.error('Login error:', error);
+      // Log based on error type
+      if (error.response?.status === 401) {
+        // Invalid credentials - expected validation error, not a system error
+        console.log('⚠️ Login validation failed:', error.response?.data?.message || 'Invalid credentials');
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        console.error('❌ Login timeout - server not responding');
+      } else if (!error.response) {
+        console.error('❌ Login network error:', error.message);
+      } else {
+        console.error('❌ Login error:', error.response?.status, error.response?.data?.message || error.message);
+      }
+
       return {
         success: false,
         message: error.response?.data?.message || 'Login failed'
@@ -172,7 +187,18 @@ export const AuthProvider = ({ children, navigationRef }) => {
 
       return { success: false, message: 'Registration failed' };
     } catch (error) {
-      console.error('Registration error:', error);
+      // Log based on error type
+      if (error.response?.status === 400 || error.response?.status === 409) {
+        // Validation error or email already exists - expected, not a system error
+        console.log('⚠️ Registration validation failed:', error.response?.data?.message || 'Validation error');
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        console.error('❌ Registration timeout - server not responding');
+      } else if (!error.response) {
+        console.error('❌ Registration network error:', error.message);
+      } else {
+        console.error('❌ Registration error:', error.response?.status, error.response?.data?.message || error.message);
+      }
+
       return {
         success: false,
         message: error.response?.data?.message || 'Registration failed'

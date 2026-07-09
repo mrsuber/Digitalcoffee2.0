@@ -62,6 +62,35 @@ export const VideoCallScreen = ({ navigation, route }) => {
         throw new Error('Session data is missing');
       }
 
+      // Validate local stream
+      if (!initialLocalStream) {
+        console.error('❌ No local stream provided from WaitingRoom!');
+        throw new Error('Camera not initialized. Please try again.');
+      }
+
+      // Verify stream has tracks
+      const videoTracks = initialLocalStream.getVideoTracks();
+      const audioTracks = initialLocalStream.getAudioTracks();
+      console.log('📹 VideoCall: Local stream tracks received from WaitingRoom:');
+      console.log('  - Video tracks:', videoTracks.length, videoTracks.map(t => `${t.label}:${t.enabled}:${t.readyState}`));
+      console.log('  - Audio tracks:', audioTracks.length, audioTracks.map(t => `${t.label}:${t.enabled}:${t.readyState}`));
+
+      if (videoTracks.length === 0) {
+        console.error('❌ No video tracks in local stream!');
+        throw new Error('Camera not available. Please check permissions.');
+      }
+
+      if (audioTracks.length === 0) {
+        console.warn('⚠️ No audio tracks in local stream!');
+      }
+
+      // Verify tracks are live
+      const deadTracks = initialLocalStream.getTracks().filter(t => t.readyState !== 'live');
+      if (deadTracks.length > 0) {
+        console.error('❌ Some tracks are not live:', deadTracks.map(t => `${t.kind}:${t.readyState}`));
+        throw new Error('Camera/microphone not ready. Please try again.');
+      }
+
       console.log('📹 Session coach_id:', session.coach_id, 'coach_user_id:', session.coach_user_id, 'User ID:', user?.id);
       const isCoach = user?.id === session?.coach_user_id; // Compare with coach's user_id, not coach_id
       console.log('📹 Is coach?', isCoach);
@@ -127,6 +156,19 @@ export const VideoCallScreen = ({ navigation, route }) => {
 
       // Set the local stream from WaitingRoom
       webrtcService.localStream = initialLocalStream;
+
+      // Verify the stream is properly set
+      console.log('📹 Verifying local stream before initialization:');
+      console.log('   - Stream exists:', !!webrtcService.localStream);
+      console.log('   - Stream ID:', webrtcService.localStream?.id);
+      console.log('   - Tracks:', webrtcService.localStream?.getTracks().map(t =>
+        `${t.kind}:${t.enabled}:${t.readyState}`
+      ));
+
+      if (!webrtcService.localStream || webrtcService.localStream.getTracks().length === 0) {
+        console.error('❌ Local stream is invalid!');
+        throw new Error('Local stream not properly initialized');
+      }
 
       // Initialize WebRTC (creates peer connection, joins session, waits for session-state)
       const userType = isCoach ? 'coach' : 'student';

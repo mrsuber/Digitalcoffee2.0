@@ -139,12 +139,22 @@ class WebRTCService {
 
       // Get user media if not already available
       if (!this.localStream) {
+        console.log('📹 No local stream found, getting user media...');
         await this.getUserMedia();
+      } else {
+        console.log('📹 Using existing local stream with', this.localStream.getTracks().length, 'tracks');
+        // Verify tracks
+        this.localStream.getTracks().forEach(track => {
+          console.log(`   - ${track.kind}: ${track.enabled}, ${track.readyState}`);
+        });
       }
 
       // Create peer connection if not already created
       if (!this.peerConnection) {
+        console.log('📹 Creating peer connection...');
         this.createPeerConnection();
+      } else {
+        console.log('📹 Using existing peer connection');
       }
 
       // Join session
@@ -162,6 +172,8 @@ class WebRTCService {
   // Connect to Socket.io signaling server
   connectSocket() {
     return new Promise((resolve, reject) => {
+      console.log('🔌 Connecting to socket server:', SOCKET_URL);
+
       this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'], // Try websocket first, fallback to polling
         reconnection: true,
@@ -171,7 +183,10 @@ class WebRTCService {
         timeout: 20000,
         autoConnect: true,
         forceNew: false,
-        upgrade: true
+        upgrade: true,
+        path: '/socket.io/', // Explicitly set the path
+        rejectUnauthorized: false, // Allow self-signed certificates
+        secure: true,
       });
 
       this.socket.on('connect', () => {
@@ -323,9 +338,14 @@ class WebRTCService {
 
     // Add local stream tracks
     if (this.localStream) {
+      console.log('📹 Adding local tracks to peer connection:');
       this.localStream.getTracks().forEach(track => {
+        console.log(`  - ${track.kind}: enabled=${track.enabled}, readyState=${track.readyState}`, track.getSettings());
         this.peerConnection.addTrack(track, this.localStream);
       });
+      console.log('📹 Total tracks added:', this.localStream.getTracks().length);
+    } else {
+      console.warn('⚠️ No local stream available when creating peer connection!');
     }
 
     // Handle ICE candidates
@@ -340,13 +360,50 @@ class WebRTCService {
 
     // Handle remote stream
     this.peerConnection.ontrack = (event) => {
-      console.log('Received remote track:', event.track.kind);
+      console.log('📹 Received remote track:', {
+        kind: event.track.kind,
+        enabled: event.track.enabled,
+        readyState: event.track.readyState,
+        muted: event.track.muted,
+        id: event.track.id,
+        label: event.track.label
+      });
+      console.log('📹 Track settings:', event.track.getSettings());
+      console.log('📹 Stream ID:', event.streams[0]?.id);
+      console.log('📹 Stream tracks:', event.streams[0]?.getTracks().map(t => `${t.kind}:${t.enabled}:${t.readyState}`));
 
-      if (!this.remoteStream) {
-        this.remoteStream = event.streams[0];
+      if (event.streams[0]) {
+        const newStream = event.streams[0];
 
-        if (this.onRemoteStream) {
-          this.onRemoteStream(this.remoteStream);
+        // Always update to latest stream
+        if (!this.remoteStream || this.remoteStream.id !== newStream.id) {
+          console.log('📹 Setting remote stream:', newStream.id);
+          this.remoteStream = newStream;
+
+          // Log all tracks
+          const videoTracks = newStream.getVideoTracks();
+          const audioTracks = newStream.getAudioTracks();
+          console.log('📹 Remote stream has', videoTracks.length, 'video tracks and', audioTracks.length, 'audio tracks');
+
+          videoTracks.forEach((track, idx) => {
+            console.log(`📹 Video track ${idx}:`, {
+              id: track.id,
+              label: track.label,
+              enabled: track.enabled,
+              muted: track.muted,
+              readyState: track.readyState
+            });
+          });
+
+          if (this.onRemoteStream) {
+            this.onRemoteStream(this.remoteStream);
+          }
+        } else {
+          console.log('📹 New track added to existing stream. Total tracks:', this.remoteStream.getTracks().length);
+          // Notify again in case UI needs to re-render
+          if (this.onRemoteStream && event.track.kind === 'video') {
+            this.onRemoteStream(this.remoteStream);
+          }
         }
       }
     };
@@ -439,10 +496,30 @@ class WebRTCService {
       }
 
       console.log('Creating offer for room:', this.roomId);
+
+      // Log current senders/tracks before creating offer
+      const senders = this.peerConnection.getSenders();
+      console.log('📹 Current senders before creating offer:', senders.length);
+      senders.forEach(sender => {
+        if (sender.track) {
+          console.log(`   - Sending ${sender.track.kind}: enabled=${sender.track.enabled}, readyState=${sender.track.readyState}`);
+        } else {
+          console.log('   - Sender with no track');
+        }
+      });
+
       const offer = await this.peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
+
+      console.log('📹 Offer SDP created. Video present:', offer.sdp.includes('m=video'));
+      console.log('📹 Offer SDP audio present:', offer.sdp.includes('m=audio'));
+      // Log the actual video line from SDP
+      const videoMatch = offer.sdp.match(/m=video.*\n.*\n.*\n/);
+      if (videoMatch) {
+        console.log('📹 Video SDP line:', videoMatch[0].substring(0, 100));
+      }
 
       console.log('Setting local description with offer...');
       await this.peerConnection.setLocalDescription(offer);
@@ -470,12 +547,27 @@ class WebRTCService {
         throw new Error('Peer connection not initialized');
       }
 
+      console.log('📹 Received offer. Video present:', offer.sdp.includes('m=video'));
+      console.log('📹 Received offer. Audio present:', offer.sdp.includes('m=audio'));
+
+      // Log current senders before handling offer
+      const senders = this.peerConnection.getSenders();
+      console.log('📹 Current senders before setting remote desc:', senders.length);
+      senders.forEach(sender => {
+        if (sender.track) {
+          console.log(`  - ${sender.track.kind}: enabled=${sender.track.enabled}, readyState=${sender.track.readyState}`);
+        }
+      });
+
       console.log('Setting remote description from offer...');
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
       console.log('Remote description set successfully');
 
       console.log('Creating answer...');
       const answer = await this.peerConnection.createAnswer();
+      console.log('📹 Answer SDP created. Video present:', answer.sdp.includes('m=video'));
+      console.log('📹 Answer SDP audio present:', answer.sdp.includes('m=audio'));
+
       await this.peerConnection.setLocalDescription(answer);
       console.log('Local description set with answer');
 
@@ -495,8 +587,18 @@ class WebRTCService {
   // Handle received answer
   async handleAnswer(answer) {
     try {
+      console.log('📹 Received answer. Video present:', answer.sdp.includes('m=video'));
+      console.log('📹 Received answer. Audio present:', answer.sdp.includes('m=audio'));
+
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-      console.log('Answer received and set');
+      console.log('✅ Answer received and remote description set');
+
+      // Log transceivers to verify media types
+      const transceivers = this.peerConnection.getTransceivers();
+      console.log('📹 Transceivers after answer:', transceivers.length);
+      transceivers.forEach((t, i) => {
+        console.log(`  [${i}] ${t.mid}: ${t.direction}, sender=${t.sender?.track?.kind}, receiver=${t.receiver?.track?.kind}`);
+      });
     } catch (error) {
       console.error('Error handling answer:', error);
       throw error;

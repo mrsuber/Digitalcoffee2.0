@@ -14,17 +14,25 @@ class SocketService {
   async connect(userId) {
     if (this.socket?.connected && this.userId === userId) {
       console.log('🔌 Socket already connected for user', userId);
-      return;
+      return Promise.resolve();
     }
 
-    try {
-      this.userId = userId;
-      const socketUrl = API_URL.replace('/api', ''); // Remove /api from URL
+    // Disconnect any existing socket first
+    if (this.socket) {
+      console.log('🔌 Disconnecting existing socket before reconnecting');
+      this.socket.disconnect();
+      this.socket = null;
+    }
 
-      console.log('🔌 Connecting to socket server:', socketUrl);
+    return new Promise((resolve, reject) => {
+      try {
+        this.userId = userId;
+        const socketUrl = API_URL.replace('/api', ''); // Remove /api from URL
+
+        console.log('🔌 Connecting to socket server:', socketUrl);
 
       this.socket = io(socketUrl, {
-        transports: ['polling', 'websocket'], // Try polling first, then websocket
+        transports: ['websocket', 'polling'], // Try websocket first (faster and more reliable)
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
@@ -37,6 +45,7 @@ class SocketService {
         rejectUnauthorized: false, // Allow self-signed certificates in development
         secure: true,
         withCredentials: false,
+        path: '/socket.io/', // Explicitly set the path
       });
 
       this.setupEventHandlers();
@@ -44,6 +53,7 @@ class SocketService {
       // Register user after connection
       this.socket.on('connect', () => {
         console.log('✅ Socket connected:', this.socket.id);
+        console.log('   Transport used:', this.socket.io?.engine?.transport?.name);
         this.isConnected = true;
         this.registerUser();
       });
@@ -54,8 +64,16 @@ class SocketService {
       });
 
       this.socket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error.message || error);
-        // Don't log full error object to avoid cluttering console
+        console.error('❌ Socket connection error:', {
+          message: error.message || error,
+          type: error.type,
+          description: error.description,
+          context: error.context
+        });
+        // Log transport being used
+        if (this.socket) {
+          console.log('   Transport attempted:', this.socket.io?.engine?.transport?.name);
+        }
       });
 
       this.socket.on('reconnect_attempt', (attemptNumber) => {
@@ -71,11 +89,29 @@ class SocketService {
       this.socket.on('reconnect_failed', () => {
         console.error('❌ Socket reconnection failed after all attempts');
         this.isConnected = false;
+        reject(new Error('Socket reconnection failed'));
+      });
+
+      // Resolve after successful connection or reject after timeout
+      const connectionTimeout = setTimeout(() => {
+        if (!this.isConnected) {
+          console.error('❌ Socket connection timeout (20s)');
+          // Don't reject here - let reconnection logic handle it
+          resolve(); // Resolve anyway to not block the app
+        }
+      }, 20000);
+
+      // Clear timeout when connected
+      this.socket.once('connect', () => {
+        clearTimeout(connectionTimeout);
+        resolve();
       });
 
     } catch (error) {
       console.error('❌ Error initializing socket:', error);
+      reject(error);
     }
+    });
   }
 
   // Register user with server

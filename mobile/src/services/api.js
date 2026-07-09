@@ -46,19 +46,46 @@ api.interceptors.response.use(
     return response.data;
   },
   async (error) => {
-    console.error('❌ API error response:', {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      url: error.config?.url,
-      message: error.message,
-      data: error.response?.data
-    });
-
     const originalRequest = error.config;
+    const status = error.response?.status;
+    const url = originalRequest?.url;
 
     // Skip token refresh for auth endpoints
-    const isAuthEndpoint = originalRequest?.url?.includes('/auth/register') ||
-                          originalRequest?.url?.includes('/auth/login');
+    const isAuthEndpoint = url?.includes('/auth/register') || url?.includes('/auth/login');
+
+    // Differentiate between expected authentication errors and actual errors
+    if (isAuthEndpoint && (status === 401 || status === 400)) {
+      // Expected validation error (wrong credentials, validation failures, etc.)
+      console.log('⚠️ Authentication validation error:', {
+        status,
+        url,
+        message: error.response?.data?.message || 'Validation failed'
+      });
+    } else if (status === 403) {
+      // Token expired - this is expected, will try to refresh
+      console.log('🔄 Access token expired, will attempt refresh');
+    } else if (status >= 500) {
+      // Server error - this is a real problem
+      console.error('❌ Server error:', {
+        status,
+        statusText: error.response?.statusText,
+        url,
+        message: error.response?.data?.message || error.message
+      });
+    } else if (!error.response) {
+      // Network error - no response from server
+      console.error('❌ Network error:', {
+        message: error.message,
+        url
+      });
+    } else {
+      // Other client errors (404, 409, etc.)
+      console.log('⚠️ API client error:', {
+        status,
+        url,
+        message: error.response?.data?.message || error.message
+      });
+    }
 
     // If access token expired, try to refresh it (but not for auth endpoints)
     if (error.response?.status === 403 && !originalRequest._retry && !isAuthEndpoint) {
