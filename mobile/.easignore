@@ -1,0 +1,24 @@
+# Build artifacts - exclude all
+*.aab
+*.apk
+*.ipa
+android/
+ios/
+dist/
+dist-ios/
+
+# Development files
+.expo/
+.DS_Store
+.claude/
+
+# Build scripts and docs
+BUILD_AND_TEST.sh
+build-playstore.sh
+download-build.sh
+*.md
+
+# Temporary files
+*.swp
+*.log
+expo-debug.log
