@@ -2,6 +2,7 @@
   "expo": {
     "name": "Digital Coffee",
     "slug": "digital-coffee",
+    "owner": "mrsuber",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -41,8 +42,12 @@
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
-      ]
+        "ACCESS_NETWORK_STATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ],
+      "useNextNotificationsApi": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -54,11 +59,25 @@
           "merchantIdentifier": "merchant.com.digitalcoffee.app",
           "enableGooglePay": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#7c3aed",
+          "mode": "production"
+        }
       ]
     ],
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#7c3aed",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Digital Coffee"
+    },
     "extra": {
       "eas": {
-        "projectId": "14A1B856-FE84-44AB-AD15-3B3DD58E06E8"
+        "projectId": "17bd4336-ce96-4eca-bc8d-0b1ef6a6d428"
       }
     }
   }

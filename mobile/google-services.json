@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "555163422647",
+    "firebase_url": "https://digital-coffee-app.firebaseio.com",
+    "project_id": "digital-coffee-app",
+    "storage_bucket": "digital-coffee-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555163422647:android:c884a18767f57f1ec1e232",
+        "android_client_info": {
+          "package_name": "com.digitalcoffee.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "555163422647-1t8khdrtuvdl9kej28ebuujsnf1055g8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBB15VnEWlGlkLPjgqaS4ofM__SB12x9_k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "555163422647-1t8khdrtuvdl9kej28ebuujsnf1055g8.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "555163422647-5mo05fe7qagmim5u0amqhgrrhmqggo7c.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.digitalcoffee.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
