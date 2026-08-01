@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../utils/theme';
 import HomeNavigator from './HomeNavigator';
 import FocusNavigator from './FocusNavigator';
@@ -33,6 +34,8 @@ const TabIcon = ({ icon, focused }) => (
 );
 
 const MainNavigator = () => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -41,8 +44,8 @@ const MainNavigator = () => {
           backgroundColor: theme.colors.cardBackground,
           borderTopColor: theme.colors.border,
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 10,
         },
         tabBarActiveTintColor: theme.colors.alpha,

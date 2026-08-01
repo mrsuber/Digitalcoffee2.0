@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Digital Coffee Support - Account deletion and data privacy requests.">
+    <title>Support & Account Deletion - Digital Coffee</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --gradient-start: #000614;
+            --gradient-mid: #0a0e27;
+            --gradient-end: #0f1535;
+            --purple: #7c3aed;
+            --alpha: #3b82f6;
+            --teal-light: #14b8a6;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%);
+            color: #ffffff;
+            line-height: 1.8;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        nav {
+            padding: 20px 0;
+            margin-bottom: 40px;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            color: white;
+            text-decoration: none;
+        }
+
+        .logo-gradient {
+            background: linear-gradient(90deg, var(--purple), var(--alpha), var(--teal-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        h1 {
+            font-size: 42px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 40px;
+            font-size: 18px;
+        }
+
+        h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            color: var(--teal-light);
+        }
+
+        h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: var(--alpha);
+        }
+
+        p, li {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 15px;
+        }
+
+        ol {
+            margin-left: 25px;
+            margin-bottom: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .section {
+            background: rgba(26, 20, 72, 0.4);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .important {
+            background: rgba(124, 58, 237, 0.15);
+            border-left: 4px solid var(--purple);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .contact-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .contact-box h3 {
+            margin-top: 0;
+            color: var(--teal-light);
+        }
+
+        .email-link {
+            display: inline-block;
+            margin: 20px 0;
+            padding: 15px 30px;
+            background: linear-gradient(90deg, var(--purple), var(--alpha));
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 18px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .email-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        a {
+            color: var(--teal-light);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        a:hover {
+            color: var(--alpha);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 40px;
+            padding: 12px 24px;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 32px;
+            }
+            h2 {
+                font-size: 24px;
+            }
+            .section {
+                padding: 20px;
+            }
+            .email-link {
+                font-size: 16px;
+                padding: 12px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="container">
+        <a href="/" class="logo">
+            Digital <span class="logo-gradient">Coffee</span>
+        </a>
+    </nav>
+
+    <div class="container">
+        <h1>Support & Account Deletion</h1>
+        <p class="subtitle">We're here to help you with any questions or concerns</p>
+
+        <div class="section">
+            <h2>Account Deletion Request</h2>
+            <p>
+                We respect your right to control your personal data. If you wish to delete your Digital Coffee account and all associated data, you can do so easily.
+            </p>
+
+            <h3>How to Request Account Deletion</h3>
+            <ol>
+                <li><strong>In-App Deletion (Recommended):</strong>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>Open the Digital Coffee app</li>
+                        <li>Go to Settings → Account Settings</li>
+                        <li>Select "Delete Account"</li>
+                        <li>Follow the confirmation prompts</li>
+                    </ul>
+                </li>
+                <li><strong>Email Request:</strong> Send an email to our support team using the contact information below with the subject line "Account Deletion Request"</li>
+            </ol>
+
+            <div class="important">
+                <p><strong>What happens when you delete your account:</strong></p>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>Your account will be permanently deleted within 30 days</li>
+                    <li>All personal data (name, email, profile information) will be removed</li>
+                    <li>Your wellness data (mood tracking, journal entries, meditation history) will be deleted</li>
+                    <li>Your coaching session history and notes will be permanently removed</li>
+                    <li>Active subscriptions will be cancelled (no refund for unused time)</li>
+                    <li>This action cannot be undone</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Data Export Request</h2>
+            <p>
+                Before deleting your account, you may want to export your data. We can provide you with a copy of your personal information in a structured, machine-readable format.
+            </p>
+            <p>
+                To request a data export, email us at the address below with the subject line "Data Export Request". We will process your request within 30 days.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>Data Retention</h2>
+            <p>
+                After account deletion, we retain minimal data only as required by law or for legitimate business purposes:
+            </p>
+            <ul>
+                <li>Transaction records for tax and accounting purposes (up to 7 years)</li>
+                <li>Fraud prevention and security logs (up to 2 years)</li>
+                <li>Aggregated, anonymized analytics data (indefinitely)</li>
+            </ul>
+            <p>
+                All other personal and identifiable data will be permanently deleted within 30 days of your deletion request.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>Other Privacy Requests</h2>
+            <p>You have the right to request:</p>
+            <ul>
+                <li><strong>Access:</strong> A copy of all personal data we have about you</li>
+                <li><strong>Correction:</strong> Updates to inaccurate or incomplete information</li>
+                <li><strong>Restriction:</strong> Limitation of how we process your data</li>
+                <li><strong>Portability:</strong> Transfer of your data to another service</li>
+                <li><strong>Objection:</strong> Stop processing your data for certain purposes</li>
+            </ul>
+            <p>
+                To exercise any of these rights, contact us using the information below.
+            </p>
+        </div>
+
+        <div class="contact-box">
+            <h3>Contact Our Support Team</h3>
+            <p>For account deletion requests, data privacy questions, or any other support needs:</p>
+
+            <a href="mailto:support@digitalcoffee.cafe?subject=Account%20Deletion%20Request" class="email-link">
+                Email: support@digitalcoffee.cafe
+            </a>
+
+            <p style="margin-top: 20px; color: rgba(255, 255, 255, 0.7);">
+                <strong>Response Time:</strong> We aim to respond to all requests within 48 hours and complete deletion requests within 30 days.
+            </p>
+
+            <p style="margin-top: 20px;">
+                <strong>Alternative Contacts:</strong><br>
+                General Support: <a href="mailto:info@digitalcoffee.cafe">info@digitalcoffee.cafe</a><br>
+                Privacy Inquiries: <a href="mailto:privacy@digitalcoffee.cafe">privacy@digitalcoffee.cafe</a>
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>Additional Resources</h2>
+            <p>For more information about how we handle your data:</p>
+            <ul>
+                <li><a href="/privacy-policy.html">Privacy Policy</a> - Our complete data privacy practices</li>
+                <li><a href="/terms-of-service.html">Terms of Service</a> - Legal terms and conditions</li>
+            </ul>
+        </div>
+
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+</body>
+</html>

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '../services/api';
 import api from '../services/api';
 import { notificationService } from '../services/firebase';
+import { bookingNotificationService } from '../services/bookingNotifications';
 import socketService from '../services/socketService';
 
 const AuthContext = createContext();
@@ -98,6 +99,13 @@ export const AuthProvider = ({ children, navigationRef }) => {
       if (accessToken && refreshToken && userData) {
         setUser(JSON.parse(userData));
         setIsAuthenticated(true);
+
+        // Schedule notifications for upcoming bookings
+        try {
+          await bookingNotificationService.scheduleAllUpcomingBookings();
+        } catch (error) {
+          console.error('Error scheduling booking notifications:', error);
+        }
       }
     } catch (error) {
       console.error('Error loading user:', error);
@@ -130,6 +138,13 @@ export const AuthProvider = ({ children, navigationRef }) => {
         } catch (fcmError) {
           console.log('⚠️  FCM token registration skipped:', fcmError.message);
           // Continue even if FCM fails - not critical for login
+        }
+
+        // Schedule notifications for upcoming bookings
+        try {
+          await bookingNotificationService.scheduleAllUpcomingBookings();
+        } catch (error) {
+          console.error('Error scheduling booking notifications:', error);
         }
 
         return { success: true };
@@ -213,6 +228,13 @@ export const AuthProvider = ({ children, navigationRef }) => {
 
       // Disconnect socket before logout
       socketService.disconnect();
+
+      // Cancel all scheduled booking notifications
+      try {
+        await bookingNotificationService.cancelAllNotifications();
+      } catch (error) {
+        console.error('Error cancelling notifications:', error);
+      }
 
       // Call logout API to revoke refresh token
       if (refreshToken) {

@@ -79,88 +79,82 @@ export default function CoachVideoCall() {
 
   // Set up local video when stream is available and video element is rendered
   useEffect(() => {
-    const setupLocalVideo = () => {
-      if (!callActive || !localVideoRef.current) {
-        console.log('⏳ Waiting for callActive and video element...');
-        return;
-      }
+    if (!callActive || !localVideoRef.current || !localStreamRef.current) {
+      return;
+    }
 
-      if (!localStreamRef.current) {
-        console.log('⏳ Waiting for local stream...');
-        return;
-      }
+    console.log('📹 [LOCAL] Attaching stream to video element');
+    const videoElement = localVideoRef.current;
+    const stream = localStreamRef.current;
 
-      console.log('📹 Setting up local video element');
-      console.log('   - Stream ID:', localStreamRef.current.id);
-      console.log('   - Video element exists:', !!localVideoRef.current);
-      console.log('   - Tracks:', localStreamRef.current.getTracks().map(t =>
-        `${t.kind}:${t.enabled}:${t.readyState}`
-      ));
+    // Set stream
+    videoElement.srcObject = stream;
+    videoElement.muted = true;
+    videoElement.playsInline = true;
+    videoElement.autoplay = true;
 
-      try {
-        localVideoRef.current.srcObject = localStreamRef.current;
-        console.log('   - srcObject set successfully');
-
-        localVideoRef.current.play()
-          .then(() => {
-            console.log('✅ Local video playing');
-            console.log('   - Video dimensions:', localVideoRef.current.videoWidth, 'x', localVideoRef.current.videoHeight);
-          })
-          .catch(e => {
-            console.warn('⚠️ Local video autoplay issue:', e);
-            // Try with user interaction
-            localVideoRef.current.muted = true;
-            localVideoRef.current.play().catch(e2 => console.error('❌ Retry failed:', e2));
-          });
-      } catch (error) {
-        console.error('❌ Error setting local video srcObject:', error);
-      }
+    // Force play
+    const playVideo = () => {
+      videoElement.play()
+        .then(() => console.log('✅ [LOCAL] Video playing'))
+        .catch(err => {
+          console.warn('⚠️ [LOCAL] Autoplay failed, user interaction needed:', err.message);
+        });
     };
 
-    // Run immediately
-    setupLocalVideo();
+    // Try to play immediately
+    playVideo();
 
-    // Also check periodically for the first 5 seconds
-    const interval = setInterval(setupLocalVideo, 500);
-    setTimeout(() => clearInterval(interval), 5000);
+    // Also play when metadata loads
+    videoElement.addEventListener('loadedmetadata', playVideo);
 
-    return () => clearInterval(interval);
-  }, [callActive]);
+    return () => {
+      videoElement.removeEventListener('loadedmetadata', playVideo);
+    };
+  }, [callActive, localStreamRef.current]);
 
   // Set up remote video when it's received
   useEffect(() => {
-    if (!callActive) return;
+    if (!callActive || !remoteVideoRef.current) return;
 
+    const videoElement = remoteVideoRef.current;
+
+    const handleStreamChange = () => {
+      if (!videoElement.srcObject) return;
+
+      console.log('📹 [REMOTE] Stream attached, attempting playback');
+      videoElement.playsInline = true;
+      videoElement.autoplay = true;
+      videoElement.muted = false;
+
+      videoElement.play()
+        .then(() => console.log('✅ [REMOTE] Video playing'))
+        .catch(err => {
+          console.warn('⚠️ [REMOTE] Autoplay failed:', err.message);
+          // User might need to interact with page
+        });
+    };
+
+    // Check if stream is already set
+    if (videoElement.srcObject) {
+      handleStreamChange();
+    }
+
+    // Watch for when srcObject gets set
     const checkInterval = setInterval(() => {
-      if (remoteVideoRef.current?.srcObject) {
-        const stream = remoteVideoRef.current.srcObject;
-        const tracks = stream.getTracks();
-        console.log('📹 Remote video srcObject detected');
-        console.log('   - Stream ID:', stream.id);
-        console.log('   - Tracks:', tracks.map(t => `${t.kind}:${t.enabled}:${t.readyState}`));
-
-        remoteVideoRef.current.play()
-          .then(() => {
-            console.log('✅ Remote video playing successfully');
-            console.log('   - Video dimensions:', remoteVideoRef.current.videoWidth, 'x', remoteVideoRef.current.videoHeight);
-            clearInterval(checkInterval);
-          })
-          .catch(e => {
-            console.warn('⚠️ Remote video autoplay issue:', e);
-            // Retry
-            setTimeout(() => {
-              remoteVideoRef.current?.play().catch(e2 =>
-                console.error('❌ Remote video retry failed:', e2)
-              );
-            }, 1000);
-          });
+      if (videoElement.srcObject) {
+        handleStreamChange();
+        clearInterval(checkInterval);
       }
-    }, 500);
+    }, 100);
 
-    // Clear interval after 30 seconds
-    setTimeout(() => clearInterval(checkInterval), 30000);
+    // Also listen for loadedmetadata
+    videoElement.addEventListener('loadedmetadata', handleStreamChange);
 
-    return () => clearInterval(checkInterval);
+    return () => {
+      clearInterval(checkInterval);
+      videoElement.removeEventListener('loadedmetadata', handleStreamChange);
+    };
   }, [callActive]);
 
   const loadStudentInfo = async () => {
@@ -406,7 +400,10 @@ export default function CoachVideoCall() {
 
       // Handle remote stream
       peerConnectionRef.current.ontrack = (event) => {
-        console.log('📹 Received remote track:', event.track.kind, 'enabled:', event.track.enabled, 'readyState:', event.track.readyState);
+        console.log('📹 ========== REMOTE TRACK RECEIVED ==========');
+        console.log('📹 Track kind:', event.track.kind);
+        console.log('📹 Track enabled:', event.track.enabled);
+        console.log('📹 Track readyState:', event.track.readyState);
         console.log('📹 Track settings:', event.track.getSettings());
         console.log('📹 Stream ID:', event.streams[0]?.id);
         console.log('📹 Stream tracks:', event.streams[0]?.getTracks().map(t => `${t.kind}:${t.enabled}:${t.readyState}`));
@@ -416,8 +413,15 @@ export default function CoachVideoCall() {
 
           // Check if we already have this stream
           if (remoteVideoRef.current.srcObject !== stream) {
-            console.log('📹 Setting remote video srcObject');
+            console.log('📹 Setting remote video srcObject to new stream');
             remoteVideoRef.current.srcObject = stream;
+
+            // Ensure video element properties are set
+            remoteVideoRef.current.playsInline = true;
+            remoteVideoRef.current.autoplay = true;
+            remoteVideoRef.current.muted = false;
+          } else {
+            console.log('📹 Stream already set, checking playback state');
           }
 
           // Log all tracks in the stream
@@ -434,25 +438,43 @@ export default function CoachVideoCall() {
               readyState: track.readyState,
               settings: track.getSettings()
             });
+
+            // Listen for track events
+            track.onended = () => console.log('⚠️ Remote video track ended');
+            track.onmute = () => console.log('⚠️ Remote video track muted');
+            track.onunmute = () => console.log('✅ Remote video track unmuted');
           });
 
-          // Explicitly play the video (some browsers require this)
-          remoteVideoRef.current.play()
-            .then(() => {
-              console.log('✅ Remote video playing successfully');
-              callStartTime.current = Date.now();
-              setConnectionState('connected');
-              setStatusMessage('Connected');
-            })
-            .catch(err => {
-              console.error('❌ Error playing remote video:', err);
-              // Try to recover by playing again
-              setTimeout(() => {
-                remoteVideoRef.current?.play().catch(e =>
-                  console.error('❌ Retry play failed:', e)
-                );
-              }, 500);
-            });
+          // Force play the video
+          const attemptPlay = () => {
+            if (!remoteVideoRef.current) return;
+
+            console.log('📹 Attempting to play remote video...');
+            remoteVideoRef.current.play()
+              .then(() => {
+                console.log('✅ Remote video playing successfully!');
+                console.log('   - Video dimensions:', remoteVideoRef.current.videoWidth, 'x', remoteVideoRef.current.videoHeight);
+                console.log('   - paused:', remoteVideoRef.current.paused);
+                console.log('   - readyState:', remoteVideoRef.current.readyState);
+
+                callStartTime.current = Date.now();
+                setConnectionState('connected');
+                setStatusMessage('Connected');
+              })
+              .catch(err => {
+                console.error('❌ Error playing remote video:', err);
+                console.log('   - Retrying in 500ms...');
+                // Try to recover by playing again
+                setTimeout(attemptPlay, 500);
+              });
+          };
+
+          // Try to play immediately
+          attemptPlay();
+        } else {
+          console.error('❌ Remote video ref or stream not available!');
+          console.log('   - remoteVideoRef.current:', !!remoteVideoRef.current);
+          console.log('   - event.streams[0]:', !!event.streams[0]);
         }
       };
 
@@ -951,20 +973,57 @@ export default function CoachVideoCall() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          position: 'relative'
+          position: 'relative',
+          minHeight: '400px'
         }}>
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
             muted={false}
+            controls={false}
+            onLoadedMetadata={(e) => {
+              console.log('📹 [REMOTE] Metadata loaded, dimensions:', e.target.videoWidth, 'x', e.target.videoHeight);
+              e.target.play().catch(err => console.warn('Remote play failed:', err));
+            }}
+            onPlay={() => console.log('✅ [REMOTE] Video started playing')}
+            onError={(e) => console.error('❌ [REMOTE] Video error:', e)}
             style={{
               width: '100%',
               height: '100%',
-              objectFit: 'contain',
-              backgroundColor: '#000'
+              objectFit: 'cover',
+              backgroundColor: '#111',
+              display: 'block',
+              minWidth: '320px',
+              minHeight: '240px'
             }}
           />
+          {callActive && connectionState === 'connected' && (
+            <div style={{
+              position: 'absolute',
+              top: '1rem',
+              left: '1rem',
+              background: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              zIndex: 5
+            }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#10b981',
+                animation: 'pulse 2s infinite'
+              }} />
+              {student?.name || 'Student'}
+            </div>
+          )}
           {!callActive && !connecting && (
             <div style={{
               position: 'absolute',
@@ -1047,26 +1106,51 @@ export default function CoachVideoCall() {
             position: 'absolute',
             bottom: '2rem',
             right: showChat ? '22rem' : '2rem',
-            width: '240px',
-            height: '180px',
-            background: '#000',
+            width: '320px',
+            height: '240px',
+            background: '#1f2937',
             borderRadius: '0.75rem',
             overflow: 'hidden',
-            border: '2px solid #374151',
-            boxShadow: '0 10px 15px rgba(0,0,0,0.3)'
+            border: '3px solid #3b82f6',
+            boxShadow: '0 10px 30px rgba(59, 130, 246, 0.5)',
+            zIndex: 10
           }}>
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
+              controls={false}
+              onLoadedMetadata={(e) => {
+                console.log('📹 [LOCAL] Metadata loaded, dimensions:', e.target.videoWidth, 'x', e.target.videoHeight);
+                e.target.play().catch(err => console.warn('Local play failed:', err));
+              }}
+              onPlay={() => console.log('✅ [LOCAL] Video started playing')}
+              onError={(e) => console.error('❌ [LOCAL] Video error:', e)}
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                transform: 'scaleX(-1)' // Mirror effect
+                transform: 'scaleX(-1)', // Mirror effect
+                display: 'block',
+                backgroundColor: '#1f2937',
+                minWidth: '320px',
+                minHeight: '240px'
               }}
             />
+            <div style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              fontWeight: '600'
+            }}>
+              You
+            </div>
             {!videoEnabled && (
               <div style={{
                 position: 'absolute',

@@ -380,12 +380,23 @@ export const VideoCallScreen = ({ navigation, route }) => {
       {/* Local Video (Picture-in-Picture) */}
       <View style={styles.localVideoContainer}>
         {localStream && cameraEnabled ? (
-          <RTCView
-            streamURL={localStream.toURL()}
-            style={styles.localVideo}
-            objectFit="cover"
-            mirror={true}
-          />
+          <>
+            <RTCView
+              streamURL={localStream.toURL()}
+              style={styles.localVideo}
+              objectFit="cover"
+              mirror={true}
+              zOrder={1}
+            />
+            {/* Debug: Show that stream exists */}
+            {__DEV__ && (
+              <View style={styles.debugInfo}>
+                <Text style={styles.debugText}>
+                  {localStream.getTracks().filter(t => t.kind === 'video').length > 0 ? '📹' : '❌'}
+                </Text>
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.localVideoOff}>
             <Text style={styles.localVideoOffText}>📷</Text>
@@ -608,6 +619,7 @@ const styles = StyleSheet.create({
   localVideo: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#000',
   },
   localVideoOff: {
     width: '100%',
@@ -618,6 +630,18 @@ const styles = StyleSheet.create({
   },
   localVideoOffText: {
     fontSize: 32,
+  },
+  debugInfo: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 2,
+    borderRadius: 4,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#fff',
   },
   topBar: {
     position: 'absolute',

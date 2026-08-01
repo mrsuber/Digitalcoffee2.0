@@ -2,16 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { notificationService } from './src/services/firebase';
 import api from './src/services/api';
 import socketService from './src/services/socketService';
 
 // Import AuthContext
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 // Import screens with error boundaries
-let SplashScreen, AuthScreen, ForgotPasswordScreen, ResetPasswordScreen, IntroScreen, MoodCheckScreen, MindModeScreen, MainNavigator, IncomingCallScreen, WaitingRoomScreen, VideoCallScreen;
+let SplashScreen, AuthScreen, ForgotPasswordScreen, ResetPasswordScreen, IntroScreen, MoodCheckScreen, MindModeScreen, MainNavigator, IncomingCallScreen, WaitingRoomScreen, VideoCallScreen, ScheduledCallScreen;
 
 try {
   SplashScreen = require('./src/screens/SplashScreen').default;
@@ -98,7 +99,71 @@ try {
   CallDetailScreen = () => <View style={styles.error}><Text style={styles.errorText}>CallDetailScreen Error</Text></View>;
 }
 
+try {
+  ScheduledCallScreen = require('./src/screens/ScheduledCallScreen').default;
+} catch (e) {
+  console.error('Error loading ScheduledCallScreen:', e);
+  ScheduledCallScreen = () => <View style={styles.error}><Text style={styles.errorText}>ScheduledCallScreen Error</Text></View>;
+}
+
 const Stack = createStackNavigator();
+
+// Navigation component that checks authentication
+function AppNavigator({ navigationRef }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  // Show loading screen while checking authentication
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#7c3aed" />
+      </View>
+    );
+  }
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: '#0a0e27' }
+      }}
+      initialRouteName={isAuthenticated ? 'Main' : 'Auth'}
+    >
+      <Stack.Screen name="Auth" component={AuthScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen name="Intro" component={IntroScreen} />
+      <Stack.Screen name="MoodCheck" component={MoodCheckScreen} />
+      <Stack.Screen name="MindModeSelection" component={MindModeScreen} />
+      <Stack.Screen name="Main" component={MainNavigator} />
+      <Stack.Screen
+        name="IncomingCall"
+        component={IncomingCallScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
+      <Stack.Screen
+        name="ScheduledCall"
+        component={ScheduledCallScreen}
+        options={{ presentation: 'fullScreenModal', headerShown: false }}
+      />
+      <Stack.Screen
+        name="WaitingRoom"
+        component={WaitingRoomScreen}
+        options={{ presentation: 'fullScreenModal', headerShown: false }}
+      />
+      <Stack.Screen
+        name="VideoCallScreen"
+        component={VideoCallScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
+      <Stack.Screen
+        name="CallDetail"
+        component={CallDetailScreen}
+        options={{ presentation: 'modal' }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -151,6 +216,21 @@ export default function App() {
         roomId: data.roomId,
       });
     }
+
+    // Handle scheduled call incoming notification
+    if (data.type === 'scheduled_call_incoming' && navigationRef.current) {
+      const booking = data.booking ? JSON.parse(data.booking) : null;
+      navigationRef.current.navigate('ScheduledCall', {
+        booking: booking || {
+          id: data.bookingId,
+          session_token: data.sessionToken,
+        },
+        coach: {
+          id: data.coachId,
+          name: data.coachName,
+        },
+      });
+    }
   };
 
   const handleNotificationResponse = (response) => {
@@ -165,6 +245,21 @@ export default function App() {
         roomId: data.roomId,
       });
     }
+
+    // Handle scheduled call notification tap
+    if (data.type === 'scheduled_call_incoming' && navigationRef.current) {
+      const booking = data.booking ? JSON.parse(data.booking) : null;
+      navigationRef.current.navigate('ScheduledCall', {
+        booking: booking || {
+          id: data.bookingId,
+          session_token: data.sessionToken,
+        },
+        coach: {
+          id: data.coachId,
+          name: data.coachName,
+        },
+      });
+    }
   };
 
   if (showSplash) {
@@ -172,45 +267,14 @@ export default function App() {
   }
 
   return (
-    <AuthProvider navigationRef={navigationRef}>
-      <NavigationContainer ref={navigationRef}>
-        <StatusBar style="light" />
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false,
-            cardStyle: { backgroundColor: '#0a0e27' }
-          }}
-        >
-          <Stack.Screen name="Auth" component={AuthScreen} />
-          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-          <Stack.Screen name="Intro" component={IntroScreen} />
-          <Stack.Screen name="MoodCheck" component={MoodCheckScreen} />
-          <Stack.Screen name="MindModeSelection" component={MindModeScreen} />
-          <Stack.Screen name="Main" component={MainNavigator} />
-          <Stack.Screen
-            name="IncomingCall"
-            component={IncomingCallScreen}
-            options={{ presentation: 'fullScreenModal' }}
-          />
-          <Stack.Screen
-            name="WaitingRoom"
-            component={WaitingRoomScreen}
-            options={{ presentation: 'fullScreenModal', headerShown: false }}
-          />
-          <Stack.Screen
-            name="VideoCallScreen"
-            component={VideoCallScreen}
-            options={{ presentation: 'fullScreenModal' }}
-          />
-          <Stack.Screen
-            name="CallDetail"
-            component={CallDetailScreen}
-            options={{ presentation: 'modal' }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider navigationRef={navigationRef}>
+        <NavigationContainer ref={navigationRef}>
+          <StatusBar style="light" />
+          <AppNavigator navigationRef={navigationRef} />
+        </NavigationContainer>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
@@ -224,5 +288,11 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ff0000',
     fontSize: 18,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0a0e27',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
