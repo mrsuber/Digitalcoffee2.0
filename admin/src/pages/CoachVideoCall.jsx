@@ -96,7 +96,10 @@ export default function CoachVideoCall() {
     // Force play
     const playVideo = () => {
       videoElement.play()
-        .then(() => console.log('✅ [LOCAL] Video playing'))
+        .then(() => {
+          console.log('✅ [LOCAL] Video playing');
+          console.log('📹 [LOCAL] Video dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+        })
         .catch(err => {
           console.warn('⚠️ [LOCAL] Autoplay failed, user interaction needed:', err.message);
         });
@@ -111,7 +114,7 @@ export default function CoachVideoCall() {
     return () => {
       videoElement.removeEventListener('loadedmetadata', playVideo);
     };
-  }, [callActive, localStreamRef.current]);
+  }, [callActive]);
 
   // Set up remote video when it's received
   useEffect(() => {
@@ -1130,7 +1133,7 @@ export default function CoachVideoCall() {
               style={{
                 width: '100%',
                 height: '100%',
-                objectFit: 'cover',
+                objectFit: 'contain',
                 transform: 'scaleX(-1)', // Mirror effect
                 display: 'block',
                 backgroundColor: '#1f2937',
