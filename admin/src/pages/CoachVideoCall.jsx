@@ -994,7 +994,7 @@ export default function CoachVideoCall() {
             style={{
               width: '100%',
               height: '100%',
-              objectFit: 'cover',
+              objectFit: 'contain',
               backgroundColor: '#111',
               display: 'block',
               minWidth: '320px',
